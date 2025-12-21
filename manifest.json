@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Curseforge Earnings Exporter",
+  "version": "0.0.1",
+  "content_scripts": [
+    {
+      "matches": [
+        ""
+      ],
+      "js": [
+        "CurseforgeEarnings.js"
+      ]
+    }
+  ]
+}

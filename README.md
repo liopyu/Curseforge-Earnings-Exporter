@@ -1,0 +1,2 @@
+# Curseforge Statistics Chrome Extension
+
