@@ -1,0 +1,111 @@
+#cf-pdf-export-wrap {
+  position: relative;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+#cf-pdf-export-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#cf-pdf-export-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+#cf-pdf-export-status {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.92);
+  color: #fff;
+  padding: 10px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+#cf-pdf-export-status[data-fade="1"] {
+  opacity: 0;
+}
+
+#cf-pdf-export-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 260px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 20, 0.98);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  z-index: 2147483647;
+}
+
+#cf-pdf-export-menu[data-open="1"] {
+  display: block;
+}
+
+#cf-pdf-export-menu-btn .cf-pdf-export-arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  transform: translateY(1px);
+  transition: transform 120ms ease;
+}
+
+/* IMPORTANT: this expects data-open to be set on the BUTTON */
+#cf-pdf-export-menu-btn[data-open="1"] .cf-pdf-export-arrow {
+  transform: translateY(1px) rotate(180deg);
+}
+
+.cf-pdf-export-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cf-pdf-export-opt input {
+  width: 14px;
+  height: 14px;
+}
+
+.cf-pdf-export-sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 10px 0;
+}
+
+#cf-pdf-export-doexport,
+#cf-pdf-export-dostop {
+  width: 100%;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#cf-pdf-export-doexport:hover,
+#cf-pdf-export-dostop:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+#cf-pdf-export-dostop {
+  margin-top: 8px;
+}
