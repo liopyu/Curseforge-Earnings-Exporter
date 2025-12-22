@@ -11,13 +11,14 @@
     if (!el) {
       el = document.createElement("div");
       el.id = STATUS_ID;
-      document.body.appendChild(el);
+      (document.body || document.documentElement).appendChild(el);
     }
 
     el.removeAttribute("data-fade");
     el.textContent = text;
     return el;
   };
+
 
   let fadeStatusAfter = (ms) => {
     let el = document.getElementById(STATUS_ID);

@@ -10,10 +10,16 @@ function injectExporter() {
   if (window.__CF_EXPORTER_INJECTED) return;
   if (Date.now() < __cfInjectFailUntil) return;
 
-  let rt = typeof chrome !== "undefined" && chrome && chrome.runtime;
-  if (!rt || typeof rt.getURL !== "function") return;
+  let runtime =
+    globalThis.browser && browser.runtime && typeof browser.runtime.getURL === "function"
+      ? browser.runtime
+      : globalThis.chrome && chrome.runtime && typeof chrome.runtime.getURL === "function"
+        ? chrome.runtime
+        : null;
 
-  let url = rt.getURL("exporter.js");
+  if (!runtime) return;
+
+  let url = runtime.getURL("exporter.js");
   if (!url || typeof url !== "string") {
     __cfInjectFailUntil = Date.now() + 2000;
     return;
@@ -36,7 +42,6 @@ function injectExporter() {
 
   (document.head || document.documentElement).appendChild(s);
 }
-
 
 let setMenuOpen = (open) => {
   let menu = document.getElementById(MENU_ID);
@@ -143,7 +148,6 @@ let buildDropdownUi = () => {
   rangeTitle.className = "cf-pdf-export-range-title";
   rangeTitle.textContent = "Date Range";
 
-
   let row1 = document.createElement("div");
   row1.className = "cf-pdf-export-range-row";
 
@@ -192,8 +196,6 @@ let buildDropdownUi = () => {
   let endErr = document.createElement("div");
   endErr.className = "cf-pdf-export-range-error";
   endErr.textContent = "";
-
-
 
   endBox.appendChild(endInput);
   endCol.appendChild(endBox);
@@ -256,6 +258,7 @@ let buildDropdownUi = () => {
     try { isRunning = !!(ev && ev.detail && ev.detail.running); } catch (e) { isRunning = false; }
     updateButtonsDisabled();
   });
+
   let TIP_ID = "cf-pdf-disabled-tip";
 
   let ensureTipEl = () => {
@@ -263,9 +266,10 @@ let buildDropdownUi = () => {
     if (el) return el;
     el = document.createElement("div");
     el.id = TIP_ID;
-    document.body.appendChild(el);
+    (document.body || document.documentElement).appendChild(el);
     return el;
   };
+
 
   let showTip = (text) => {
     let el = ensureTipEl();
@@ -364,7 +368,6 @@ let buildDropdownUi = () => {
     else exportBtn.setAttribute("disabled", "true");
   };
 
-
   let validate = () => {
     setInvalid(startErr, "");
     setInvalid(endErr, "");
@@ -387,7 +390,6 @@ let buildDropdownUi = () => {
 
     if (!s) setInvalid(startErr, "Required.", true);
     if (!e) setInvalid(endErr, "Required.", true);
-
 
     let sm = ymdToMs(s);
     let em = ymdToMs(e);
@@ -434,7 +436,6 @@ let buildDropdownUi = () => {
     window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_STOP"));
   });
 
-
   let rangeKey = "cf_pdf_export_range_v2";
 
   let tryLoadCachedRange = () => {
@@ -460,7 +461,6 @@ let buildDropdownUi = () => {
         validate();
         return true;
       }
-
     } catch (e) {
     }
     return false;
@@ -523,7 +523,6 @@ let buildDropdownUi = () => {
 
   return wrap;
 };
-
 
 let HELP_TEXT = "You can view your transactions and see all of your previous orders of either Amazon Gift Cards, PayPal or Payoneer orders here.";
 

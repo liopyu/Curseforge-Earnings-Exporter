@@ -6,7 +6,7 @@
     let cs = document.currentScript;
     let src = cs && cs.src ? String(cs.src) : "";
     if (!src) {
-      let scripts = document.querySelectorAll('script[src]');
+      let scripts = document.querySelectorAll("script[src]");
       let last = scripts.length ? scripts[scripts.length - 1] : null;
       src = last && last.src ? String(last.src) : "";
     }
@@ -22,7 +22,7 @@
       let s = document.createElement("script");
       s.src = base + path;
       s.onload = () => {
-        s.remove();
+        try { s.remove(); } catch (e) { }
         resolve();
       };
       s.onerror = () => {

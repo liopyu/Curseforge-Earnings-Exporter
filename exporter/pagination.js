@@ -27,22 +27,31 @@
     return n;
   };
 
-  let getTbody = () => document.querySelector("table tbody");
-
   let tableSig = () => {
     let rows = Array.from(document.querySelectorAll("tr.MuiTableRow-root.RaDatagrid-row"));
     let s = rows.slice(0, 10).map(r => {
       let tds = Array.from(r.querySelectorAll("td"));
       let kind = norm(tds[1]?.innerText);
-      let dateText = norm(r.querySelector("td.column-dateCreated span")?.innerText);
       let amtText = norm(tds[5]?.innerText);
-      return kind + "|" + dateText + "|" + amtText;
+
+      let cell = r.querySelector("td.column-dateCreated");
+      let el = cell ? (cell.querySelector("time") || cell.querySelector("span") || cell) : null;
+
+      let dateRaw =
+        norm(el?.getAttribute("datetime")) ||
+        norm(el?.getAttribute("data-date")) ||
+        norm(el?.getAttribute("data-datetime")) ||
+        norm(el?.getAttribute("data-value")) ||
+        norm(el?.getAttribute("title")) ||
+        norm(el?.innerText || el?.textContent);
+
+      return kind + "|" + dateRaw + "|" + amtText;
     }).join("||");
     return s || "empty";
   };
 
+
   let waitForTableChange = async (beforeSig, timeoutMs) => {
-    let tb = getTbody();
     return await new Promise(resolve => {
       let done = false;
       let obs = null;
@@ -60,16 +69,18 @@
         return;
       }
 
-      if (tb) {
-        obs = new MutationObserver(() => {
-          if (tableSig() !== beforeSig) finish(true);
-        });
-        try { obs.observe(tb, { childList: true, subtree: true, characterData: true }); } catch (e) { }
-      }
+      obs = new MutationObserver(() => {
+        if (tableSig() !== beforeSig) finish(true);
+      });
+
+      try {
+        obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+      } catch (e) { }
 
       let to = setTimeout(() => finish(tableSig() !== beforeSig), timeoutMs);
     });
   };
+
 
   let clickPageNumber = async (n) => {
     let root = getPaginationRoot();

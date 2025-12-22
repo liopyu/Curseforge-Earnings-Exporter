@@ -20,51 +20,21 @@
     let dd = String(d.getDate()).padStart(2, "0");
     return y + "-" + m + "-" + dd;
   };
+  let getRowDateRaw = (row) => {
+    let cell = row ? row.querySelector("td.column-dateCreated") : null;
+    if (!cell) return "";
 
-  let parseUSDateTime = (s) => {
-    let d = new Date(s);
-    if (!Number.isNaN(d.getTime())) return d;
+    let el = cell.querySelector("time") || cell.querySelector("span") || cell;
 
-    let m = String(s || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
-    if (!m) return null;
-
-    let mm = parseInt(m[1], 10);
-    let dd = parseInt(m[2], 10);
-    let yy = parseInt(m[3], 10);
-    let hh = parseInt(m[4], 10);
-    let mi = parseInt(m[5], 10);
-    let ss = parseInt(m[6], 10);
-    let ap = m[7].toUpperCase();
-
-    if (ap === "PM" && hh !== 12) hh += 12;
-    if (ap === "AM" && hh === 12) hh = 0;
-
-    let out = new Date(yy, mm - 1, dd, hh, mi, ss);
-    if (Number.isNaN(out.getTime())) return null;
-    return out;
+    return (
+      String(el.getAttribute("datetime") || "").trim() ||
+      String(el.getAttribute("data-date") || "").trim() ||
+      String(el.getAttribute("data-datetime") || "").trim() ||
+      String(el.getAttribute("data-value") || "").trim() ||
+      String(el.getAttribute("title") || "").trim() ||
+      String(el.textContent || "").trim()
+    );
   };
-
-  let scanVisibleMinMaxDate = () => {
-    let rows = Array.from(document.querySelectorAll("tr.MuiTableRow-root.RaDatagrid-row"));
-    let min = null;
-    let max = null;
-
-    for (let i = 0; i < rows.length; i++) {
-      let row = rows[i];
-      let dateText = String(row.querySelector("td.column-dateCreated span")?.textContent || "").trim();
-      if (!dateText) continue;
-
-      let d = parseUSDateTime(dateText);
-      if (!d) continue;
-
-      let t = d.getTime();
-      if (min == null || t < min) min = t;
-      if (max == null || t > max) max = t;
-    }
-
-    return { min, max };
-  };
-
   let __probeRunning = false;
   let __probeDone = false;
 
@@ -159,10 +129,10 @@
 
       for (let i = 0; i < rows.length; i++) {
         let row = rows[i];
-        let dateText = String(row.querySelector("td.column-dateCreated span")?.textContent || "").trim();
-        if (!dateText) continue;
+        let dateRaw = getRowDateRaw(row);
+        if (!dateRaw) continue;
 
-        let d = parseUSDateTime(dateText);
+        let d = parseUSDateTime(dateRaw);
         if (!d) continue;
 
         let t = d.getTime();
@@ -172,6 +142,7 @@
 
       return { newest, oldest };
     };
+
 
     try {
       while (true) {

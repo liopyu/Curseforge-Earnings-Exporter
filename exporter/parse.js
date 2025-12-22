@@ -1,7 +1,6 @@
 (() => {
   let norm = (v) => window.CF_EXPORTER.utils.norm(v);
   let parseUSDateTime = (s) => window.CF_EXPORTER.utils.parseUSDateTime(s);
-
   let collectCandidates = (page) => {
     let rows = Array.from(document.querySelectorAll("tr.MuiTableRow-root.RaDatagrid-row"));
     let candidates = [];
@@ -13,8 +12,18 @@
       let kind = norm(tds[1]?.textContent);
       if (kind !== "Points generated") continue;
 
-      let dateText = norm(row.querySelector("td.column-dateCreated span")?.textContent);
-      let d = parseUSDateTime(dateText);
+      let dateCell = row.querySelector("td.column-dateCreated");
+      let dateEl = dateCell ? (dateCell.querySelector("time") || dateCell.querySelector("span") || dateCell) : null;
+
+      let dateRaw =
+        norm(dateEl?.getAttribute("datetime")) ||
+        norm(dateEl?.getAttribute("data-date")) ||
+        norm(dateEl?.getAttribute("data-datetime")) ||
+        norm(dateEl?.getAttribute("data-value")) ||
+        norm(dateEl?.getAttribute("title")) ||
+        norm(dateEl?.textContent);
+
+      let d = parseUSDateTime(dateRaw);
       if (!d) continue;
 
       let ptsRaw = norm(tds[5]?.textContent);
@@ -26,11 +35,12 @@
       let y = d.getFullYear();
       let m = d.getMonth();
 
-      candidates.push({ row, y, m, pointsTotal, dateText, expandId, page });
+      candidates.push({ row, y, m, pointsTotal, dateText: dateRaw, expandId, page });
     }
 
     return candidates;
   };
+
   let mapLimit = async (items, limit, fn) => {
     let idx = 0;
     let out = new Array(items.length);
