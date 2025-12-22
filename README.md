@@ -1,6 +1,6 @@
 # CurseForge Earnings Exporter
 
-**CurseForge Earnings Exporter** is a Google Chrome extension that allows CurseForge creators to export their **Author Rewards / Points Generated** history into a **clean, structured PDF report** with optional per-mod breakdowns and custom date ranges.
+**CurseForge Earnings Exporter** is a browser extension for **Google Chrome and Mozilla Firefox** that allows CurseForge creators to export their **Author Rewards / Points Generated** history into a **clean, structured PDF report** with optional per-mod breakdowns and custom date ranges.
 
 The extension works directly on the CurseForge website by reading the visible transaction table, handling pagination, expanding breakdown panels, and generating a locally downloadable PDF — no external servers, no data upload.
 
@@ -19,7 +19,6 @@ The extension works directly on the CurseForge website by reading the visible tr
 * Cancel export at any time
 * Resets the page back to **Page 1** after export completes
 
-
 ---
 
 ## Usage
@@ -27,24 +26,23 @@ The extension works directly on the CurseForge website by reading the visible tr
 1. Open your **CurseForge → Author Rewards / Earnings** page
 2. Click the **Export** menu button
 3. Choose:
+
    * Date range
    * Whether to include per-mod breakdowns
 
-2. Click the **Export** menu button
-
 <img src="https://i.ibb.co/hFGgcjtD/buttonarrow.png" alt="buttonarrow" border="0">
 
-3. Configure your export options:
+4. Configure your export options:
 
    * Date range
    * Whether to include per-mod breakdowns
 
 <img src="https://i.ibb.co/fzRL5b3y/exportmenu.png" alt="exportmenu" border="0">
 
-4. Click **Export PDF**
-5. Wait while pages are scanned
-6. The PDF downloads automatically
-7. Page navigation resets back to Page 1
+5. Click **Export PDF**
+6. Wait while pages are scanned
+7. The PDF downloads automatically
+8. Page navigation resets back to Page 1
 
 You may click **Stop** at any time to cancel an in-progress export.
 
@@ -79,7 +77,6 @@ If enabled, the report also includes:
 
 <img src="https://i.ibb.co/SXgCjW8q/modearning.png" alt="modearning" border="0">
 
-
 ---
 
 ## Performance Notes
@@ -104,6 +101,7 @@ If enabled, the report also includes:
 ## Compatibility
 
 * Google Chrome (latest)
+* Mozilla Firefox (latest)
 * Chromium-based browsers (Edge, Brave, etc.)
 * Requires CurseForge’s standard Author Rewards UI
 
