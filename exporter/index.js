@@ -92,16 +92,17 @@
     let setStatus = window.CF_EXPORTER.status.setStatus;
     let fadeStatusAfter = window.CF_EXPORTER.status.fadeStatusAfter;
 
-    let ensureOnPage1 = window.CF_EXPORTER.pagination.ensureOnPage1;
-    let getNextBtn = window.CF_EXPORTER.pagination.getNextBtn;
-    let nextDisabled = window.CF_EXPORTER.pagination.nextDisabled;
-    let tableSig2 = window.CF_EXPORTER.pagination.tableSig;
-    let waitForTableChange2 = window.CF_EXPORTER.pagination.waitForTableChange;
+    let pagination = window.CF_EXPORTER.pagination;
+    let ensureOnPage1 = pagination.ensureOnPage1;
+    let getNextBtn = pagination.getNextBtn;
+    let nextDisabled = pagination.nextDisabled;
+    let tableSig2 = pagination.tableSig;
+    let waitForTableChange2 = pagination.waitForTableChange;
 
     let collectCandidates = window.CF_EXPORTER.parse.collectCandidates;
     let mapLimit = window.CF_EXPORTER.parse.mapLimit;
 
-    let expandRowAndParseMods = window.CF_EXPORTER.breakdown.expandRowAndParseMods;
+    let parseUSDateTime = window.CF_EXPORTER.utils.parseUSDateTime;
 
     let ymdToMs = (ymd) => {
       if (!ymd) return null;
@@ -164,151 +165,158 @@
       return { newest, oldest };
     };
 
-    while (true) {
-      if (window.CF_PDF_EXPORT_STOP) {
-        setStatus("Stopped.");
-        fadeStatusAfter(5000);
-        return;
-      }
-
-      page++;
-
-      let mm = scanPageNewestOldestMs();
-
-      if (mm.oldest != null && mm.oldest > endMs) {
-        skippedPages++;
-        setStatus("Skipped page " + page + " (too new). Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
-      } else if (mm.newest != null && mm.newest < startMs) {
-        setStatus("Reached start of range on page " + page + ". Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
-        break;
-      } else {
-        let rawCandidates = collectCandidates(page);
-
-        let candidates = [];
-        for (let i = 0; i < rawCandidates.length; i++) {
-          let it = rawCandidates[i];
-
-          let d = parseUSDateTime(it.dateText);
-          if (!d) continue;
-          let t = d.getTime();
-
-          if (t < startMs || t > endMs) continue;
-
-          let key = String(it.y) + "|" + String(it.m) + "|" + String(it.pointsTotal) + "|" + String(it.expandId);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          candidates.push(it);
+    try {
+      while (true) {
+        if (window.CF_PDF_EXPORT_STOP) {
+          setStatus("Stopped.");
+          fadeStatusAfter(5000);
+          return;
         }
 
-        let parsed = null;
+        page++;
 
-        if (!includeMods) {
-          parsed = candidates.map(it => ({ y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: [] }));
+        let mm = scanPageNewestOldestMs();
+
+        if (mm.oldest != null && mm.oldest > endMs) {
+          skippedPages++;
+          setStatus("Skipped page " + page + " (too new). Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
+        } else if (mm.newest != null && mm.newest < startMs) {
+          setStatus("Reached start of range on page " + page + ". Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
+          break;
         } else {
-          let expandRow = window.CF_EXPORTER.breakdown.expandRow;
-          let readExpandedRowMods = window.CF_EXPORTER.breakdown.readExpandedRowMods;
+          let rawCandidates = collectCandidates(page);
 
-          let contexts = await mapLimit(candidates, 6, async it => {
-            let ctx = await expandRow(it.row);
-            return ctx;
-          });
+          let candidates = [];
+          for (let i = 0; i < rawCandidates.length; i++) {
+            let it = rawCandidates[i];
 
-          parsed = await mapLimit(candidates, 6, async (it, idx) => {
-            let meta = { dateText: it.dateText, page: it.page, expandId: it.expandId };
-            let ctx = contexts[idx] || null;
+            let d = parseUSDateTime(it.dateText);
+            if (!d) continue;
+            let t = d.getTime();
 
-            let mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
-            if (!mods.length) mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
+            if (t < startMs || t > endMs) continue;
 
-            return { y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: mods };
-          });
+            let key = String(it.y) + "|" + String(it.m) + "|" + String(it.pointsTotal) + "|" + String(it.expandId);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            candidates.push(it);
+          }
 
-        }
+          let parsed = null;
 
-        for (let i = 0; i < parsed.length; i++) {
-          let it = parsed[i];
+          if (!includeMods) {
+            parsed = candidates.map(it => ({ y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: [] }));
+          } else {
+            let expandRow = window.CF_EXPORTER.breakdown.expandRow;
+            let readExpandedRowMods = window.CF_EXPORTER.breakdown.readExpandedRowMods;
 
-          if (!totalsPoints[it.y]) totalsPoints[it.y] = Array(12).fill(0);
-          if (!totalsUSD[it.y]) totalsUSD[it.y] = Array(12).fill(0);
+            let contexts = await mapLimit(candidates, 6, async it => {
+              let ctx = await expandRow(it.row);
+              return ctx;
+            });
 
-          totalsPoints[it.y][it.m] += it.pointsTotal;
-          totalsUSD[it.y][it.m] += it.pointsTotal * USD_PER_POINT;
+            parsed = await mapLimit(candidates, 6, async (it, idx) => {
+              let meta = { dateText: it.dateText, page: it.page, expandId: it.expandId };
+              let ctx = contexts[idx] || null;
 
-          if (includeMods) {
-            if (!totalsModPoints[it.y]) totalsModPoints[it.y] = {};
-            if (!totalsModUSD[it.y]) totalsModUSD[it.y] = {};
+              let mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
+              if (!mods.length) mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
 
-            if (it.mods && it.mods.length) {
-              for (let j = 0; j < it.mods.length; j++) {
-                let mod = it.mods[j];
-                let name = mod.name;
-                let pts = mod.points;
-                if (!Number.isFinite(pts)) continue;
+              return { y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: mods };
+            });
+          }
 
-                totalsModPoints[it.y][name] = (totalsModPoints[it.y][name] || 0) + pts;
-                totalsModUSD[it.y][name] = (totalsModUSD[it.y][name] || 0) + (pts * USD_PER_POINT);
+          for (let i = 0; i < parsed.length; i++) {
+            let it = parsed[i];
+
+            if (!totalsPoints[it.y]) totalsPoints[it.y] = Array(12).fill(0);
+            if (!totalsUSD[it.y]) totalsUSD[it.y] = Array(12).fill(0);
+
+            totalsPoints[it.y][it.m] += it.pointsTotal;
+            totalsUSD[it.y][it.m] += it.pointsTotal * USD_PER_POINT;
+
+            if (includeMods) {
+              if (!totalsModPoints[it.y]) totalsModPoints[it.y] = {};
+              if (!totalsModUSD[it.y]) totalsModUSD[it.y] = {};
+
+              if (it.mods && it.mods.length) {
+                for (let j = 0; j < it.mods.length; j++) {
+                  let mod = it.mods[j];
+                  let name = mod.name;
+                  let pts = mod.points;
+                  if (!Number.isFinite(pts)) continue;
+
+                  totalsModPoints[it.y][name] = (totalsModPoints[it.y][name] || 0) + pts;
+                  totalsModUSD[it.y][name] = (totalsModUSD[it.y][name] || 0) + (pts * USD_PER_POINT);
+                }
+              } else {
+                let bucket = "(Unattributed / Unknown)";
+                totalsModPoints[it.y][bucket] = (totalsModPoints[it.y][bucket] || 0) + it.pointsTotal;
+                totalsModUSD[it.y][bucket] = (totalsModUSD[it.y][bucket] || 0) + (it.pointsTotal * USD_PER_POINT);
               }
-            } else {
-              let bucket = "(Unattributed / Unknown)";
-              totalsModPoints[it.y][bucket] = (totalsModPoints[it.y][bucket] || 0) + it.pointsTotal;
-              totalsModUSD[it.y][bucket] = (totalsModUSD[it.y][bucket] || 0) + (it.pointsTotal * USD_PER_POINT);
             }
           }
+
+          parsedPages++;
+          setStatus("Parsed page " + page + ". Rows: " + seen.size + ". Years: " + Object.keys(totalsUSD).length + ". Skipped: " + skippedPages + ".");
         }
 
-        parsedPages++;
-        setStatus("Parsed page " + page + ". Rows: " + seen.size + ". Years: " + Object.keys(totalsUSD).length + ". Skipped: " + skippedPages + ".");
+        let btn = getNextBtn();
+        if (!btn || nextDisabled(btn)) break;
+
+        let before = tableSig2();
+        btn.click();
+
+        let changed = await waitForTableChange2(before, 15000);
+        if (!changed) break;
       }
 
-      let btn = getNextBtn();
-      if (!btn || nextDisabled(btn)) break;
+      let yearsOut = Object.keys(totalsUSD).map(x => parseInt(x, 10)).filter(Number.isFinite).sort((a, b) => a - b);
+      let now = new Date();
 
-      let before = tableSig2();
-      btn.click();
+      let bytes = window.CF_EXPORTER.pdf.buildOfficialPdf({
+        includeMods: includeMods,
+        years: yearsOut,
+        now: now,
+        pageCountParsed: parsedPages,
+        rowsCounted: seen.size,
+        totalsPoints: totalsPoints,
+        totalsUSD: totalsUSD,
+        totalsModPoints: totalsModPoints,
+        totalsModUSD: totalsModUSD,
+        monthNames: monthNames,
+        fmtUSD: fmtUSD,
+        fmtPoints: fmtPoints
+      });
 
-      let changed = await waitForTableChange2(before, 15000);
-      if (!changed) break;
+      let blob = new Blob([bytes], { type: "application/pdf" });
+      let url = URL.createObjectURL(blob);
+
+      let pad2 = n => String(n).padStart(2, "0");
+      let yyyy = now.getFullYear();
+      let mm2 = pad2(now.getMonth() + 1);
+      let dd2 = pad2(now.getDate());
+      let range = yearsOut.length ? (yearsOut[0] + "-" + yearsOut[yearsOut.length - 1]) : "no-data";
+
+      let name = "Curseforge Earnings Report " + range + " - " + yyyy + "." + mm2 + "." + dd2 + ".pdf";
+
+      let a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setStatus("Done. PDF downloaded. Pages parsed: " + parsedPages + ". Pages skipped: " + skippedPages + ". Rows: " + seen.size + ".");
+      fadeStatusAfter(5000);
+    } finally {
+      try {
+        await ensureOnPage1();
+      } catch (e) {
+      }
     }
-
-    let yearsOut = Object.keys(totalsUSD).map(x => parseInt(x, 10)).filter(Number.isFinite).sort((a, b) => a - b);
-    let now = new Date();
-
-    let bytes = window.CF_EXPORTER.pdf.buildOfficialPdf({
-      includeMods: includeMods,
-      years: yearsOut,
-      now: now,
-      pageCountParsed: parsedPages,
-      rowsCounted: seen.size,
-      totalsPoints: totalsPoints,
-      totalsUSD: totalsUSD,
-      totalsModPoints: totalsModPoints,
-      totalsModUSD: totalsModUSD,
-      monthNames: monthNames,
-      fmtUSD: fmtUSD,
-      fmtPoints: fmtPoints
-    });
-
-    let blob = new Blob([bytes], { type: "application/pdf" });
-    let url = URL.createObjectURL(blob);
-
-    let pad2 = n => String(n).padStart(2, "0");
-    let yyyy = now.getFullYear();
-    let mm2 = pad2(now.getMonth() + 1);
-    let dd2 = pad2(now.getDate());
-    let range = yearsOut.length ? (yearsOut[0] + "-" + yearsOut[yearsOut.length - 1]) : "no-data";
-
-    let name = "Curseforge Earnings Report " + range + " - " + yyyy + "." + mm2 + "." + dd2 + ".pdf";
-
-    let a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setStatus("Done. PDF downloaded. Pages parsed: " + parsedPages + ". Pages skipped: " + skippedPages + ". Rows: " + seen.size + ".");
-    fadeStatusAfter(5000);
   };
+
 
 
   let runExport = async (includeMods, startDate, endDate) => {

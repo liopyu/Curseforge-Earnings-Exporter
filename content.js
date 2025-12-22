@@ -165,20 +165,7 @@ let buildDropdownUi = () => {
   startErr.className = "cf-pdf-export-range-error";
   startErr.textContent = "";
 
-  let startBtn = document.createElement("button");
-  startBtn.type = "button";
-  startBtn.className = "cf-pdf-export-calbtn";
-  startBtn.setAttribute("aria-label", "Pick start date");
-  startBtn.textContent = "📅";
-  startBtn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (startInput.showPicker) startInput.showPicker();
-    else startInput.focus();
-  });
-
   startBox.appendChild(startInput);
-  startBox.appendChild(startBtn);
   startCol.appendChild(startBox);
   startCol.appendChild(startErr);
 
@@ -206,20 +193,9 @@ let buildDropdownUi = () => {
   endErr.className = "cf-pdf-export-range-error";
   endErr.textContent = "";
 
-  let endBtn = document.createElement("button");
-  endBtn.type = "button";
-  endBtn.className = "cf-pdf-export-calbtn";
-  endBtn.setAttribute("aria-label", "Pick end date");
-  endBtn.textContent = "📅";
-  endBtn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (endInput.showPicker) endInput.showPicker();
-    else endInput.focus();
-  });
+
 
   endBox.appendChild(endInput);
-  endBox.appendChild(endBtn);
   endCol.appendChild(endBox);
   endCol.appendChild(endErr);
 
