@@ -47,7 +47,12 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "{7e2f4c91-9b2e-4c9a-8d6f-3f5a1c0b9e42}"
+      "id": "{7e2f4c91-9b2e-4c9a-8d6f-3f5a1c0b9e42}",
+      "data_collection_permissions": {
+        "required": [
+          "websiteContent"
+        ]
+      }
     }
   }
 }
