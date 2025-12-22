@@ -85,9 +85,17 @@
       __probeRunning = false;
     }
   });
+  window.__CF_EXPORT_ABORT = window.__CF_EXPORT_ABORT || { aborted: false };
 
+  window.addEventListener("CF_PDF_EXPORT_STOP", () => {
+    window.CF_PDF_EXPORT_STOP = true;
+    if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
+  });
   let exporterMain = async (includeMods, startDateYmd, endDateYmd) => {
     window.CF_PDF_EXPORT_STOP = false;
+    window.__CF_EXPORT_ABORT = { aborted: false };
+    let abort = window.__CF_EXPORT_ABORT;
+    let isAborted = () => window.CF_PDF_EXPORT_STOP || (abort && abort.aborted);
 
     let setStatus = window.CF_EXPORTER.status.setStatus;
     let fadeStatusAfter = window.CF_EXPORTER.status.fadeStatusAfter;
@@ -167,7 +175,7 @@
 
     try {
       while (true) {
-        if (window.CF_PDF_EXPORT_STOP) {
+        if (isAborted()) {
           setStatus("Stopped.");
           fadeStatusAfter(5000);
           return;
@@ -184,11 +192,14 @@
           setStatus("Reached start of range on page " + page + ". Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
           break;
         } else {
-          let rawCandidates = collectCandidates(page);
+          let rawCandidates = collectCandidates(page) || [];
 
           let candidates = [];
           for (let i = 0; i < rawCandidates.length; i++) {
+            if (isAborted()) break;
+
             let it = rawCandidates[i];
+            if (!it) continue;
 
             let d = parseUSDateTime(it.dateText);
             if (!d) continue;
@@ -202,32 +213,66 @@
             candidates.push(it);
           }
 
+          if (isAborted()) {
+            setStatus("Stopped.");
+            fadeStatusAfter(5000);
+            return;
+          }
+
           let parsed = null;
 
           if (!includeMods) {
-            parsed = candidates.map(it => ({ y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: [] }));
+            parsed = candidates.map(it => it ? ({ y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: [] }) : null);
           } else {
             let expandRow = window.CF_EXPORTER.breakdown.expandRow;
             let readExpandedRowMods = window.CF_EXPORTER.breakdown.readExpandedRowMods;
 
             let contexts = await mapLimit(candidates, 6, async it => {
-              let ctx = await expandRow(it.row);
-              return ctx;
+              if (isAborted()) return null;
+              if (!it) return null;
+              try {
+                return await expandRow(it.row);
+              } catch (e) {
+                return null;
+              }
             });
 
-            parsed = await mapLimit(candidates, 6, async (it, idx) => {
+            if (isAborted()) {
+              setStatus("Stopped.");
+              fadeStatusAfter(5000);
+              return;
+            }
+
+            parsed = await mapLimit(candidates, 1, async (it) => {
+              if (window.CF_PDF_EXPORT_STOP) return null;
+
               let meta = { dateText: it.dateText, page: it.page, expandId: it.expandId };
-              let ctx = contexts[idx] || null;
+
+              let expandRow = window.CF_EXPORTER.breakdown.expandRow;
+              let readExpandedRowMods = window.CF_EXPORTER.breakdown.readExpandedRowMods;
+
+              let ctx = await expandRow(it.row);
+              if (!ctx) return { y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: [] };
 
               let mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
               if (!mods.length) mods = await readExpandedRowMods(it.row, it.pointsTotal, meta, ctx);
 
               return { y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: mods };
             });
+
           }
 
-          for (let i = 0; i < parsed.length; i++) {
+          if (isAborted()) {
+            setStatus("Stopped.");
+            fadeStatusAfter(5000);
+            return;
+          }
+
+          let parsedSafe = (parsed || []).filter(Boolean);
+
+          for (let i = 0; i < parsedSafe.length; i++) {
             let it = parsed[i];
+            if (!it) continue;
 
             if (!totalsPoints[it.y]) totalsPoints[it.y] = Array(12).fill(0);
             if (!totalsUSD[it.y]) totalsUSD[it.y] = Array(12).fill(0);
@@ -242,6 +287,8 @@
               if (it.mods && it.mods.length) {
                 for (let j = 0; j < it.mods.length; j++) {
                   let mod = it.mods[j];
+                  if (!mod) continue;
+
                   let name = mod.name;
                   let pts = mod.points;
                   if (!Number.isFinite(pts)) continue;
@@ -261,6 +308,12 @@
           setStatus("Parsed page " + page + ". Rows: " + seen.size + ". Years: " + Object.keys(totalsUSD).length + ". Skipped: " + skippedPages + ".");
         }
 
+        if (isAborted()) {
+          setStatus("Stopped.");
+          fadeStatusAfter(5000);
+          return;
+        }
+
         let btn = getNextBtn();
         if (!btn || nextDisabled(btn)) break;
 
@@ -269,6 +322,12 @@
 
         let changed = await waitForTableChange2(before, 15000);
         if (!changed) break;
+      }
+
+      if (isAborted()) {
+        setStatus("Stopped.");
+        fadeStatusAfter(5000);
+        return;
       }
 
       let yearsOut = Object.keys(totalsUSD).map(x => parseInt(x, 10)).filter(Number.isFinite).sort((a, b) => a - b);
@@ -289,6 +348,12 @@
         fmtPoints: fmtPoints
       });
 
+      if (isAborted()) {
+        setStatus("Stopped.");
+        fadeStatusAfter(5000);
+        return;
+      }
+
       let blob = new Blob([bytes], { type: "application/pdf" });
       let url = URL.createObjectURL(blob);
 
@@ -304,6 +369,13 @@
       a.href = url;
       a.download = name;
       document.body.appendChild(a);
+
+      if (isAborted()) {
+        setStatus("Stopped.");
+        fadeStatusAfter(5000);
+        return;
+      }
+
       a.click();
       a.remove();
 
@@ -317,8 +389,6 @@
     }
   };
 
-
-
   let runExport = async (includeMods, startDate, endDate) => {
     if (running) return;
 
@@ -327,11 +397,14 @@
 
     running = true;
     try {
+      window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: true } }));
       await exporterMain(includeMods, startDate, endDate);
     } finally {
       running = false;
+      window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: false } }));
     }
   };
+
 
 
   window.addEventListener("CF_PDF_EXPORT_START", (e) => {

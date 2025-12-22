@@ -147,7 +147,7 @@
 
     let firstBtn = getFirstPageBtn();
     if (firstBtn) {
-      setStatus("Navigating to page 1…");
+      setStatus("Done.");
       let before = tableSig();
       firstBtn.click();
       let ok = await waitForTableChange(before, 15000);

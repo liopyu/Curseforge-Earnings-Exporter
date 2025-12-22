@@ -2,20 +2,25 @@
   position: relative;
   display: inline-block;
   margin-top: 10px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 #cf-pdf-export-menu-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: #dddcdc;
+  background: rgb(49, 49, 49);
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 #cf-pdf-export-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgb(72, 72, 72);
 }
 
 #cf-pdf-export-status {
   position: fixed;
+  text-align: center;
   left: 0;
   right: 0;
   bottom: 0;
@@ -23,7 +28,7 @@
   background: rgba(0, 0, 0, 0.92);
   color: #fff;
   padding: 10px 14px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 12px;
   line-height: 1.35;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
@@ -47,6 +52,7 @@
   background: rgba(20, 20, 20, 0.98);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   z-index: 2147483647;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 #cf-pdf-export-menu[data-open="1"] {
@@ -76,6 +82,7 @@
   font-size: 12px;
   cursor: pointer;
   user-select: none;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-opt input {
@@ -99,6 +106,7 @@
   color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   cursor: pointer;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 #cf-pdf-export-doexport:hover,
@@ -114,24 +122,28 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-title {
   color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   font-weight: 600;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-label {
   width: 42px;
   color: rgba(255, 255, 255, 0.75);
   font-size: 12px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-inputbox {
@@ -139,6 +151,7 @@
   align-items: center;
   gap: 6px;
   flex: 1;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range input[type="date"] {
@@ -150,6 +163,7 @@
   color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   padding: 0 8px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-calbtn {
@@ -160,6 +174,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-calbtn:hover {
@@ -170,6 +185,7 @@
   color: rgba(255, 255, 255, 0.70);
   font-size: 11px;
   margin-top: -2px;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-col {
@@ -177,6 +193,7 @@
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-error {
@@ -184,6 +201,7 @@
   color: #ff6b6b;
   font-size: 11px;
   line-height: 1.2;
+  font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .cf-pdf-export-range-error[data-show="1"] {
@@ -193,4 +211,29 @@
 #cf-pdf-export-doexport[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+#cf-pdf-export-doexport[disabled],
+#cf-pdf-export-dostop[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  position: relative;
+}
+
+#cf-pdf-disabled-tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(12px, 12px);
+  white-space: nowrap;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgb(53, 52, 52);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1.2;
+  z-index: 2147483647;
+  pointer-events: none;
+  display: none;
 }

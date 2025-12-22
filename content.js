@@ -213,19 +213,110 @@ let buildDropdownUi = () => {
   exportBtn.id = EXPORT_ID;
   exportBtn.type = "button";
   exportBtn.textContent = "Export PDF";
-
   let stopBtn = document.createElement("button");
   stopBtn.id = STOP_ID;
   stopBtn.type = "button";
   stopBtn.textContent = "Stop";
 
+  let isRunning = false;
+
+  let setStopDisabled = (disabled) => {
+    if (disabled) {
+      stopBtn.setAttribute("disabled", "true");
+      stopBtn.setAttribute("data-disabled-tip", "No task is currently running");
+    } else {
+      stopBtn.removeAttribute("disabled");
+      stopBtn.removeAttribute("data-disabled-tip");
+    }
+  };
+
+  let setExportDisabled = (disabled) => {
+    if (disabled) {
+      exportBtn.setAttribute("disabled", "true");
+      exportBtn.setAttribute("data-disabled-tip", "Export already running");
+      setBusyInvalid("Export already running.");
+    } else {
+      exportBtn.removeAttribute("data-disabled-tip");
+      validate();
+    }
+  };
+
+  let updateButtonsDisabled = () => {
+    if (isRunning) {
+      setExportDisabled(true);
+      setStopDisabled(false);
+    } else {
+      setStopDisabled(true);
+      exportBtn.removeAttribute("data-disabled-tip");
+      validate();
+    }
+  };
+
+  window.addEventListener("CF_PDF_EXPORT_RUNNING", (ev) => {
+    try { isRunning = !!(ev && ev.detail && ev.detail.running); } catch (e) { isRunning = false; }
+    updateButtonsDisabled();
+  });
+  let TIP_ID = "cf-pdf-disabled-tip";
+
+  let ensureTipEl = () => {
+    let el = document.getElementById(TIP_ID);
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = TIP_ID;
+    document.body.appendChild(el);
+    return el;
+  };
+
+  let showTip = (text) => {
+    let el = ensureTipEl();
+    el.textContent = text || "";
+    el.style.display = text ? "block" : "none";
+  };
+
+  let hideTip = () => {
+    let el = document.getElementById(TIP_ID);
+    if (el) el.style.display = "none";
+  };
+
+  let moveTip = (x, y) => {
+    let el = document.getElementById(TIP_ID);
+    if (!el || el.style.display === "none") return;
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+  };
+
+  let bindDisabledHoverTip = (btn) => {
+    btn.addEventListener("pointerenter", (e) => {
+      if (!btn.hasAttribute("disabled")) return;
+      showTip(btn.getAttribute("data-disabled-tip") || "");
+      moveTip(e.clientX, e.clientY);
+    });
+
+    btn.addEventListener("pointermove", (e) => {
+      if (!btn.hasAttribute("disabled")) return;
+      moveTip(e.clientX, e.clientY);
+    });
+
+    btn.addEventListener("pointerleave", () => hideTip());
+  };
+
+  bindDisabledHoverTip(exportBtn);
+  bindDisabledHoverTip(stopBtn);
+
   let minYmd = null;
   let maxYmd = null;
 
-  let setInvalid = (el, msg) => {
+  let setInvalid = (el, msg, show) => {
     el.textContent = msg || "";
-    if (msg) el.setAttribute("data-show", "1");
+    if (msg && show) el.setAttribute("data-show", "1");
     else el.removeAttribute("data-show");
+    if (msg) el.setAttribute("data-haserr", "1");
+    else el.removeAttribute("data-haserr");
+  };
+
+  let setBusyInvalid = (msg) => {
+    setInvalid(startErr, msg || "Export already running.", false);
+    setInvalid(endErr, msg || "Export already running.", false);
   };
 
   let ymdToMs = ymd => {
@@ -269,13 +360,20 @@ let buildDropdownUi = () => {
   };
 
   let updateExportDisabled = () => {
-    if (exportEnabled()) exportBtn.removeAttribute("disabled");
+    if (!isRunning && exportEnabled()) exportBtn.removeAttribute("disabled");
     else exportBtn.setAttribute("disabled", "true");
   };
+
 
   let validate = () => {
     setInvalid(startErr, "");
     setInvalid(endErr, "");
+    if (isRunning) {
+      setBusyInvalid("Export already running.");
+      exportBtn.setAttribute("disabled", "true");
+      stopBtn.removeAttribute("disabled");
+      return;
+    }
 
     if (!minYmd || !maxYmd) {
       setInvalid(startErr, "Loading available range…");
@@ -287,8 +385,9 @@ let buildDropdownUi = () => {
     let s = String(startInput.value || "").trim();
     let e = String(endInput.value || "").trim();
 
-    if (!s) setInvalid(startErr, "Required.");
-    if (!e) setInvalid(endErr, "Required.");
+    if (!s) setInvalid(startErr, "Required.", true);
+    if (!e) setInvalid(endErr, "Required.", true);
+
 
     let sm = ymdToMs(s);
     let em = ymdToMs(e);
@@ -327,16 +426,14 @@ let buildDropdownUi = () => {
     window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_START", {
       detail: { includeMods: includeMods, startDate: startDate, endDate: endDate }
     }));
-
-    closeMenu();
   });
 
   stopBtn.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
     e.preventDefault();
     window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_STOP"));
-    closeMenu();
   });
+
 
   let rangeKey = "cf_pdf_export_range_v2";
 
@@ -421,6 +518,8 @@ let buildDropdownUi = () => {
   tryLoadCachedRange();
   requestProbe();
   validate();
+  stopBtn.setAttribute("disabled", "true");
+  updateButtonsDisabled();
 
   return wrap;
 };

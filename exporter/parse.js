@@ -31,22 +31,38 @@
 
     return candidates;
   };
-
   let mapLimit = async (items, limit, fn) => {
     let idx = 0;
     let out = new Array(items.length);
 
-    let workers = Array(limit).fill(0).map(async () => {
+    let abort = window.__CF_EXPORT_ABORT;
+    let isAborted = () => window.CF_PDF_EXPORT_STOP || (abort && abort.aborted);
+
+    let workerCount = Math.max(1, Math.min(limit || 1, items.length || 0));
+
+    let workers = Array(workerCount).fill(0).map(async () => {
       while (true) {
         let i = idx++;
         if (i >= items.length) return;
-        out[i] = await fn(items[i], i);
+
+        if (isAborted()) {
+          out[i] = null;
+          continue;
+        }
+
+        try {
+          let v = await fn(items[i], i);
+          out[i] = v == null ? null : v;
+        } catch (e) {
+          out[i] = null;
+        }
       }
     });
 
     await Promise.all(workers);
     return out;
   };
+
 
   window.CF_EXPORTER = window.CF_EXPORTER || {};
   window.CF_EXPORTER.parse = { collectCandidates, mapLimit };
