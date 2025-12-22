@@ -69,6 +69,7 @@ let toggleMenu = () => {
   setMenuOpen(menu.getAttribute("data-open") !== "1");
 };
 let buildDropdownUi = () => {
+
   let wrap = document.createElement("div");
   wrap.id = UI_ID;
 
@@ -611,6 +612,7 @@ let ensureUi = () => {
     fallbackParent.appendChild(wrap);
   } catch (e) {
   }
+
 };
 
 let schedule = (() => {

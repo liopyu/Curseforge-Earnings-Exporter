@@ -62,6 +62,19 @@
     if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
   });
   let exporterMain = async (includeMods, startDateYmd, endDateYmd) => {
+    let startRaw = (startDateYmd != null ? String(startDateYmd).trim() : "") || "";
+    let endRaw = (endDateYmd != null ? String(endDateYmd).trim() : "") || "";
+
+    if (!startRaw || !endRaw) {
+      let s = document.getElementById("cf-pdf-export-startdate")?.value;
+      let e = document.getElementById("cf-pdf-export-enddate")?.value;
+      startRaw = (s != null ? String(s).trim() : "") || startRaw;
+      endRaw = (e != null ? String(e).trim() : "") || endRaw;
+    }
+
+    startDateYmd = startRaw || null;
+    endDateYmd = endRaw || null;
+
     window.CF_PDF_EXPORT_STOP = false;
     window.__CF_EXPORT_ABORT = { aborted: false };
     let abort = window.__CF_EXPORT_ABORT;
@@ -82,17 +95,42 @@
 
     let parseUSDateTime = window.CF_EXPORTER.utils.parseUSDateTime;
 
-    let ymdToMs = (ymd) => {
-      if (!ymd) return null;
-      let m = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (!m) return null;
-      let y = parseInt(m[1], 10);
-      let mo = parseInt(m[2], 10);
-      let d = parseInt(m[3], 10);
-      let dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
-      if (Number.isNaN(dt.getTime())) return null;
-      return dt.getTime();
+    let ymdToMs = v => {
+      if (!v) return null;
+      let s = String(v).trim();
+
+      let m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m1) {
+        let y = parseInt(m1[1], 10);
+        let mo = parseInt(m1[2], 10);
+        let d = parseInt(m1[3], 10);
+        let dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
+        if (Number.isNaN(dt.getTime())) return null;
+        return dt.getTime();
+      }
+
+      let m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m2) {
+        let a = parseInt(m2[1], 10);
+        let b = parseInt(m2[2], 10);
+        let y = parseInt(m2[3], 10);
+
+        let mo = a;
+        let d = b;
+
+        if (a > 12 && b <= 12) {
+          d = a;
+          mo = b;
+        }
+
+        let dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
+        if (Number.isNaN(dt.getTime())) return null;
+        return dt.getTime();
+      }
+
+      return null;
     };
+
 
     let startMs = ymdToMs(startDateYmd);
     let endMs = ymdToMs(endDateYmd);
@@ -375,19 +413,33 @@
       window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: false } }));
     }
   };
-
-
-
   window.addEventListener("CF_PDF_EXPORT_START", (e) => {
-    let includeMods = true;
+    let d = null;
+    try { d = e && e.detail ? e.detail : null; } catch (x) { d = null; }
+
+    let includeMods = null;
+    try {
+      includeMods = d && typeof d.includeMods === "boolean" ? d.includeMods : null;
+    } catch (x) { includeMods = null; }
+
+    if (includeMods == null) {
+      let cb = document.getElementById("cf-pdf-export-permod");
+      includeMods = cb && typeof cb.checked === "boolean" ? cb.checked : false;
+    }
+
     let startDate = null;
     let endDate = null;
 
-    try { includeMods = e && e.detail && typeof e.detail.includeMods === "boolean" ? e.detail.includeMods : true; } catch (x) { }
-    try { startDate = e && e.detail && typeof e.detail.startDate === "string" ? e.detail.startDate : null; } catch (x) { }
-    try { endDate = e && e.detail && typeof e.detail.endDate === "string" ? e.detail.endDate : null; } catch (x) { }
+    try {
+      if (d && d.startDate != null) startDate = String(d.startDate).trim() || null;
+    } catch (x) { startDate = null; }
+
+    try {
+      if (d && d.endDate != null) endDate = String(d.endDate).trim() || null;
+    } catch (x) { endDate = null; }
 
     runExport(includeMods, startDate, endDate);
   });
+
 
 })();
