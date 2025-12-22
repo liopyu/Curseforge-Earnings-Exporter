@@ -13,19 +13,30 @@
         "https://authors.curseforge.com/*"
       ],
       "js": [
-        "content.js",
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "exporter.js",
         "exporter/status.js",
         "exporter/utils.js",
         "exporter/pagination.js",
         "exporter/breakdown.js",
         "exporter/parse.js",
         "exporter/pdf.js",
-        "exporter/index.js"
+        "exporter/index.js",
+        "exporter/range.js"
       ],
-      "css": [
-        "styles.css"
-      ],
-      "run_at": "document_idle"
+      "matches": [
+        "https://authors.curseforge.com/*"
+      ]
     }
   ]
 }

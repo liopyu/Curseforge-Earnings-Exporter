@@ -38,7 +38,7 @@
 #cf-pdf-export-menu {
   display: none;
   position: absolute;
-  right: 0;
+  left: 0;
   top: calc(100% + 8px);
   min-width: 260px;
   padding: 10px;
@@ -108,4 +108,89 @@
 
 #cf-pdf-export-dostop {
   margin-top: 8px;
+}
+
+.cf-pdf-export-range {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cf-pdf-export-range-title {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cf-pdf-export-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cf-pdf-export-range-label {
+  width: 42px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+}
+
+.cf-pdf-export-range-inputbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.cf-pdf-export-range input[type="date"] {
+  flex: 1;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+.cf-pdf-export-calbtn {
+  height: 30px;
+  min-width: 34px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.cf-pdf-export-calbtn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.cf-pdf-export-range-hint {
+  color: rgba(255, 255, 255, 0.70);
+  font-size: 11px;
+  margin-top: -2px;
+}
+
+.cf-pdf-export-range-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.cf-pdf-export-range-error {
+  display: none;
+  color: #ff6b6b;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.cf-pdf-export-range-error[data-show="1"] {
+  display: block;
+}
+
+#cf-pdf-export-doexport[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

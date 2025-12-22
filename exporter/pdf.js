@@ -1,22 +1,29 @@
 (() => {
-  let buildOfficialPdf = (input) => {
-    let includeMods = input.includeMods;
-    let years = input.years;
-    let now = input.now;
-    let pageCountParsed = input.pageCountParsed;
-    let rowsCounted = input.rowsCounted;
+  if (!window.CF_EXPORTER) window.CF_EXPORTER = {};
+  if (!window.CF_EXPORTER.pdf) window.CF_EXPORTER.pdf = {};
 
-    let totalsPoints = input.totalsPoints;
-    let totalsUSD = input.totalsUSD;
-    let totalsModPoints = input.totalsModPoints;
-    let totalsModUSD = input.totalsModUSD;
+  let pdfEscape = s => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 
-    let monthNames = input.monthNames;
-    let fmtUSD = input.fmtUSD;
-    let fmtPoints = input.fmtPoints;
+  let estimateTextWidth = (text, fontSize) => {
+    let t = String(text);
+    return t.length * fontSize * 0.52;
+  };
 
-    let pdfEscape = s => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-    let estimateTextWidth = (text, fontSize) => String(text).length * fontSize * 0.52;
+  window.CF_EXPORTER.pdf.buildOfficialPdf = (args) => {
+    let includeMods = !!args.includeMods;
+    let years = args.years || [];
+    let now = args.now || new Date();
+    let pageCountParsed = args.pageCountParsed || 0;
+    let rowsCounted = args.rowsCounted || 0;
+
+    let totalsPoints = args.totalsPoints || {};
+    let totalsUSD = args.totalsUSD || {};
+    let totalsModPoints = args.totalsModPoints || {};
+    let totalsModUSD = args.totalsModUSD || {};
+
+    let monthNames = args.monthNames || [];
+    let fmtUSD = args.fmtUSD;
+    let fmtPoints = args.fmtPoints;
 
     let pageW = 612;
     let pageH = 792;
@@ -42,15 +49,57 @@
 
     let objects = [];
     let addObj = s => { objects.push(s); return objects.length; };
+    let computeModsCapacity = (yStart) => {
+      let y = yStart;
+      y -= 10;
+      y -= 16;
+      y -= 18;
 
-    let pageSpecs = [];
+      let top = y;
+      let bottom = top - headerH;
+
+      y = bottom;
+
+      let minY = marginB + 56;
+      let availableRows = Math.floor((y - minY) / rowH);
+      if (!Number.isFinite(availableRows) || availableRows < 0) availableRows = 0;
+      return availableRows;
+    };
+
+    let yearHasAnyZeroMonth = (yYear) => {
+      for (let mi = 0; mi < 12; mi++) {
+        let v = (totalsPoints[yYear] && totalsPoints[yYear][mi]) ? totalsPoints[yYear][mi] : 0;
+        if (v === 0) return true;
+      }
+      return false;
+    };
+
+    let computeYearModsStartY = (yYear) => {
+      let y = pageH - marginT - 54;
+      y -= 18;
+
+      let top = y;
+      let bottom = top - headerH;
+
+      y = bottom;
+
+      let rowsLen = 13;
+      let tableBottom = y - rowsLen * rowH;
+
+      y = tableBottom - 18;
+
+      if (yearHasAnyZeroMonth(yYear)) y -= 16;
+
+      return y;
+    };
 
     let modListsByYear = {};
     if (includeMods) {
-      for (let y of years) {
+      for (let i = 0; i < years.length; i++) {
+        let y = years[i];
         let map = totalsModUSD[y] || {};
         let list = Object.keys(map).map(name => ({
-          name,
+          name: name,
           usd: map[name] || 0,
           points: (totalsModPoints[y] && totalsModPoints[y][name]) ? totalsModPoints[y][name] : 0
         }));
@@ -59,23 +108,62 @@
       }
     }
 
+    let pageSpecs = [];
     pageSpecs.push({ kind: "cover" });
-    for (let y of years) pageSpecs.push({ kind: "year", year: y });
 
-    if (includeMods) {
-      let rowsPerModPage = 26;
-      for (let y of years) {
-        let list = modListsByYear[y] || [];
-        if (!list.length) continue;
+    for (let i = 0; i < years.length; i++) {
+      let yYear = years[i];
 
-        let parts = Math.ceil(list.length / rowsPerModPage);
-        for (let p = 0; p < parts; p++) {
-          pageSpecs.push({ kind: "mods", year: y, part: p + 1, parts: parts, offset: p * rowsPerModPage, count: rowsPerModPage });
-        }
+      pageSpecs.push({ kind: "year", year: yYear, modStart: 0, modCount: 0 });
+
+      if (!includeMods) continue;
+
+      let list = modListsByYear[yYear] || [];
+      if (!list.length) continue;
+
+      let modsStartY = pageH - marginT - 54;
+      let cap = computeModsCapacity(modsStartY);
+      if (!Number.isFinite(cap) || cap < 1) cap = 1;
+
+      let start = 0;
+      let first = true;
+      while (start < list.length) {
+        let count = Math.min(cap, list.length - start);
+        pageSpecs.push({ kind: "mods", year: yYear, modStart: start, modCount: count, first: first });
+        start += count;
+        first = false;
       }
     }
 
+
     let totalPages = pageSpecs.length;
+
+
+    let grandUSD = 0;
+    let grandPoints = 0;
+    for (let i = 0; i < years.length; i++) {
+      let y = years[i];
+      let arrUSD = totalsUSD[y] || Array(12).fill(0);
+      let arrPts = totalsPoints[y] || Array(12).fill(0);
+      for (let j = 0; j < 12; j++) {
+        grandUSD += arrUSD[j] || 0;
+        grandPoints += arrPts[j] || 0;
+      }
+    }
+
+    if (includeMods) {
+      for (let i = 0; i < years.length; i++) {
+        let y = years[i];
+        let map = totalsModUSD[y] || {};
+        let list = Object.keys(map).map(name => ({
+          name: name,
+          usd: map[name] || 0,
+          points: (totalsModPoints[y] && totalsModPoints[y][name]) ? totalsModPoints[y][name] : 0
+        }));
+        list.sort((a, b) => (b.usd - a.usd) || (b.points - a.points) || a.name.localeCompare(b.name));
+        modListsByYear[y] = list;
+      }
+    }
 
     let makePageStream = (spec, pageIndex) => {
       let parts = [];
@@ -139,13 +227,17 @@
         if (rightText) addTextRight("F1", 10, pageW - marginR, headerTextY, rightText);
         addLine(marginL, headerRuleY, pageW - marginR, headerRuleY);
       };
+      let drawModsOnlyPage = (spec) => {
+        drawFrame();
+        drawHeader("Tax Year " + spec.year);
 
-      let grandUSD = 0;
-      let grandPoints = 0;
-      for (let y of years) {
-        grandUSD += totalsUSD[y].reduce((a, b) => a + b, 0);
-        grandPoints += totalsPoints[y].reduce((a, b) => a + b, 0);
-      }
+        let y = pageH - marginT - 54;
+
+        drawModsTableSlice(spec.year, y, spec.modStart || 0, spec.modCount || 0, !spec.first);
+
+
+        drawFooter();
+      };
 
       let drawCover = () => {
         drawFrame();
@@ -197,20 +289,21 @@
 
         drawFooter();
       };
+      let drawModsTableSlice = (yYear, yStart, startIndex, takeCount, continued) => {
+        if (!includeMods) return yStart;
 
-      let drawMods = (yYear, part, partsCount, offset, count) => {
-        drawFrame();
-        drawHeader("Tax Year " + yYear);
+        let list = modListsByYear[yYear] || [];
+        if (!list.length) return yStart;
 
-        let y = pageH - marginT - 54;
+        let slice = list.slice(startIndex, startIndex + (takeCount || 0));
+        if (!slice.length) return yStart;
 
-        let title = "Earnings Per Mod (Tax Year " + yYear + ")";
-        if (partsCount > 1) title += " (Part " + part + " of " + partsCount + ")";
+        let y = yStart;
 
-        addText("F2", 16, marginL, y, title);
-        y -= 18;
-        addText("F1", 10, marginL, y, "USD equivalent computed at $0.05 per point (100 points = $5.00).");
-        y -= 24;
+        y -= 10;
+        addText("F2", 13, marginL, y, continued ? ("Earnings Per Mod (" + yYear + ", Continued)") : ("Earnings Per Mod (" + yYear + ")"));
+        y -= 16;
+
 
         setStroke();
 
@@ -235,9 +328,6 @@
         addText("F2", 11, mx2 + 8, top - 15, "USD");
 
         y = bottom;
-
-        let list = modListsByYear[yYear] || [];
-        let slice = list.slice(offset, offset + count);
 
         let tableTop = y;
         let tableBottom = y - slice.length * rowH;
@@ -267,21 +357,27 @@
           addTextRight("F1", 11, mx3 - 8, midY, usdText);
         }
 
-        drawFooter();
+        y = tableBottom - 16;
+
+        return y;
       };
 
-      let drawYear = yYear => {
+
+      let drawYear = (spec) => {
+        let yYear = spec.year;
+
         drawFrame();
         drawHeader("Tax Year " + yYear);
 
         let y = pageH - marginT - 54;
-
         addText("F2", 16, marginL, y, "Tax Year " + yYear);
         y -= 18;
+
         addText("F1", 10, marginL, y, "USD equivalent computed at $0.05 per point (100 points = $5.00).");
         y -= 24;
 
         setStroke();
+
 
         let top = y;
         let bottom = top - headerH;
@@ -298,9 +394,9 @@
 
         let rows = [];
         for (let mi = 0; mi < 12; mi++) {
-          let pts = totalsPoints[yYear]?.[mi] || 0;
-          let usd = totalsUSD[yYear]?.[mi] || 0;
-          rows.push({ month: monthNames[mi], pts, usd });
+          let pts = (totalsPoints[yYear] && totalsPoints[yYear][mi]) ? totalsPoints[yYear][mi] : 0;
+          let usd = (totalsUSD[yYear] && totalsUSD[yYear][mi]) ? totalsUSD[yYear][mi] : 0;
+          rows.push({ month: monthNames[mi] || ("Month " + (mi + 1)), pts: pts, usd: usd });
         }
 
         let yearPts = (totalsPoints[yYear] || Array(12).fill(0)).reduce((a, b) => a + b, 0);
@@ -331,11 +427,11 @@
           addTextRight(font, 11, x3 - 8, midY, usdText);
         }
 
-        y = tableBottom - 22;
+        y = tableBottom - 18;
 
         let hasAnyZeroMonth = false;
         for (let mi = 0; mi < 12; mi++) {
-          if ((totalsPoints[yYear]?.[mi] || 0) === 0) {
+          if (((totalsPoints[yYear] && totalsPoints[yYear][mi]) ? totalsPoints[yYear][mi] : 0) === 0) {
             hasAnyZeroMonth = true;
             break;
           }
@@ -343,51 +439,28 @@
 
         if (hasAnyZeroMonth) {
           addText("F1", 10, marginL, y, "Included months shown even if zero to support year completeness.");
-          y -= 18;
+          y -= 16;
         }
 
-        if (includeMods) {
-          let list = modListsByYear[yYear] || [];
-          if (list.length) {
-            let boxY = y - 10;
-            let boxH = 18 + (Math.min(8, list.length) * 16);
+        if (spec && spec.kind === "year" && spec.year === yYear) {
+          y = drawModsTableSlice(yYear, y, spec.modStart || 0, spec.modCount || 0, false);
 
-            if (boxY - boxH > (marginB + 40)) {
-              let boxW = usableW;
-              let bx0 = marginL;
-              let bx1 = marginL + boxW;
-
-              addRect(bx0, boxY - boxH, boxW, boxH);
-              addText("F2", 12, bx0 + 8, boxY - 14, "Earnings Per Mod (Top " + Math.min(8, list.length) + ")");
-
-              let yy = boxY - 30;
-              for (let i = 0; i < Math.min(8, list.length); i++) {
-                let r = list[i];
-                let name = r.name;
-                if (name.length > 46) name = name.slice(0, 45) + "…";
-
-                addText("F1", 11, bx0 + 10, yy, (i + 1) + ". " + name);
-                addTextRight("F1", 11, bx1 - 10, yy, fmtUSD(r.usd));
-                yy -= 16;
-              }
-
-              y = boxY - boxH - 8;
-            }
-          }
         }
 
         drawFooter();
       };
 
       if (spec.kind === "cover") drawCover();
-      if (spec.kind === "year") drawYear(spec.year);
-      if (spec.kind === "mods") drawMods(spec.year, spec.part, spec.parts, spec.offset, spec.count);
+      if (spec.kind === "year") drawYear(spec);
+      if (spec.kind === "mods") drawModsOnlyPage(spec);
 
       return parts.join("\n") + "\n";
     };
 
     let streams = [];
-    for (let i = 0; i < pageSpecs.length; i++) streams.push(makePageStream(pageSpecs[i], i + 1));
+    for (let i = 0; i < pageSpecs.length; i++) {
+      streams.push(makePageStream(pageSpecs[i], i + 1));
+    }
 
     let contentObjNums = [];
     for (let i = 0; i < streams.length; i++) {
@@ -445,7 +518,4 @@
     let pdf = header + body + xref + trailer;
     return new TextEncoder().encode(pdf);
   };
-
-  window.CF_EXPORTER = window.CF_EXPORTER || {};
-  window.CF_EXPORTER.pdf = { buildOfficialPdf };
 })();

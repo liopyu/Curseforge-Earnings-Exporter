@@ -54,56 +54,31 @@
 
     return Object.keys(merged).map(name => ({ name, points: merged[name] }));
   };
-
-  let expandRowAndParseMods = async (row, expectedPoints, meta) => {
+  let expandRow = async (row) => {
     let btn = getExpandButton(row);
-    if (!btn) return [];
+    if (!btn) return null;
 
     try { row.scrollIntoView({ block: "center" }); } catch (e) { }
 
     let wasExpanded = norm(btn.getAttribute("aria-expanded")).toLowerCase() === "true";
     if (!wasExpanded) btn.click();
 
-    let controls = btn.getAttribute("aria-controls") || "";
+    return {
+      btn: btn,
+      controls: norm(btn.getAttribute("aria-controls")),
+      wasExpanded: wasExpanded
+    };
+  };
+
+  let readExpandedRowMods = async (row, expectedPoints, meta, ctx) => {
+    let controls = ctx && ctx.controls ? ctx.controls : "";
+    let btn = ctx && ctx.btn ? ctx.btn : getExpandButton(row);
+    let wasExpanded = ctx && typeof ctx.wasExpanded === "boolean" ? ctx.wasExpanded : (norm(btn && btn.getAttribute("aria-expanded")).toLowerCase() === "true");
 
     let getPanelNow = () => {
-      if (controls) return document.getElementById(controls);
+      if (controls) return document.getElementById(controls) || null;
       return getExpandPanel(row);
     };
-
-    let panel = getPanelNow();
-    if (!panel) {
-      panel = await new Promise(resolve => {
-        let done = false;
-        let obs = null;
-        let to = null;
-
-        let finish = v => {
-          if (done) return;
-          done = true;
-          try { if (obs) obs.disconnect(); } catch (e) { }
-          clearTimeout(to);
-          resolve(v || null);
-        };
-
-        obs = new MutationObserver(() => {
-          let p = getPanelNow();
-          if (p) finish(p);
-        });
-
-        try { obs.observe(document.body, { childList: true, subtree: true }); } catch (e) { }
-
-        to = setTimeout(() => finish(null), 2500);
-
-        let p = getPanelNow();
-        if (p) finish(p);
-      });
-    }
-
-    if (!panel) {
-      if (!wasExpanded) btn.click();
-      return [];
-    }
 
     let sumPoints = mods => {
       let s = 0;
@@ -115,22 +90,27 @@
 
     let best = { mods: [], sum: 0 };
 
-    let parseAndScore = () => {
+    let tryParse = () => {
+      let panel = getPanelNow();
+      if (!panel) return null;
+
       let mods = parseModBreakdownFromPanel(panel);
       if (!mods || !mods.length) return null;
 
       let sum = sumPoints(mods);
       if (sum > best.sum) best = { mods, sum };
 
+      if (!Number.isFinite(expectedPoints)) return mods;
+
       let tol = roundingBound(mods.length);
-      if (Number.isFinite(expectedPoints) && Math.abs(sum - expectedPoints) <= tol) return mods;
+      if (Math.abs(sum - expectedPoints) <= tol) return mods;
 
       return null;
     };
 
-    let immediate = parseAndScore();
-    if (!immediate) {
-      immediate = await new Promise(resolve => {
+    let mods = tryParse();
+    if (!mods) {
+      mods = await new Promise(resolve => {
         let done = false;
         let obs = null;
         let to = null;
@@ -144,29 +124,30 @@
         };
 
         obs = new MutationObserver(() => {
-          let v = parseAndScore();
+          let v = tryParse();
           if (v) finish(v);
         });
 
-        try { obs.observe(panel, { childList: true, subtree: true, characterData: true }); } catch (e) { }
+        try { obs.observe(document.body, { childList: true, subtree: true, characterData: true }); } catch (e) { }
 
-        to = setTimeout(() => finish(null), 2500);
+        to = setTimeout(() => finish(null), 6000);
 
-        let v = parseAndScore();
+        let v = tryParse();
         if (v) finish(v);
       });
     }
 
-    let mods = immediate || best.mods;
+    mods = mods || best.mods;
 
     if (!mods || !mods.length) {
+      let panel = getPanelNow();
       console.groupCollapsed("CF breakdown parse failed");
       console.log("meta:", meta || {});
       console.log("expectedPoints:", expectedPoints);
       console.log("controls:", controls);
-      console.log("panelText:", norm(panel.textContent).slice(0, 5000));
+      console.log("panelText:", panel ? norm(panel.textContent).slice(0, 5000) : "");
       console.groupEnd();
-      if (!wasExpanded) btn.click();
+      if (btn && !wasExpanded) btn.click();
       return [];
     }
 
@@ -183,17 +164,19 @@
       console.log("tol:", tol);
       console.log("mods:", mods);
       console.log("controls:", controls);
-      console.log("panelText:", norm(panel.textContent).slice(0, 5000));
+      let panel = getPanelNow();
+      console.log("panelText:", panel ? norm(panel.textContent).slice(0, 5000) : "");
       console.groupEnd();
       if (residual > 0) mods = mods.concat([{ name: "(Rounding / Residual)", points: residual }]);
     } else if (Number.isFinite(expectedPoints) && residual > 0.000001) {
       mods = mods.concat([{ name: "(Rounding / Residual)", points: residual }]);
     }
 
-    if (!wasExpanded) btn.click();
+    if (btn && !wasExpanded) btn.click();
     return mods;
   };
 
   window.CF_EXPORTER = window.CF_EXPORTER || {};
-  window.CF_EXPORTER.breakdown = { expandRowAndParseMods };
+  window.CF_EXPORTER.breakdown = { expandRow, readExpandedRowMods };
+
 })();
