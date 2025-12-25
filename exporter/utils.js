@@ -17,7 +17,13 @@
     let iso = new Date(raw);
     if (!Number.isNaN(iso.getTime())) return iso;
 
-    let m1 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+    let cleaned = raw
+      .replace(/\u00A0/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\b(klo|kl)\b/gi, " ")
+      .trim();
+
+    let m1 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
     if (m1) {
       let mm = parseInt(m1[1], 10);
       let dd = parseInt(m1[2], 10);
@@ -34,7 +40,7 @@
       if (!Number.isNaN(out.getTime())) return out;
     }
 
-    let m2 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    let m2 = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (m2) {
       let a = parseInt(m2[1], 10);
       let b = parseInt(m2[2], 10);
@@ -55,8 +61,27 @@
       if (!Number.isNaN(out.getTime())) return out;
     }
 
+    let m3 = cleaned.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[,\s]+(\d{1,2})[.:](\d{2})(?:[.:](\d{2}))?(?:\s*(AM|PM))?)?$/i);
+    if (m3) {
+      let dd = parseInt(m3[1], 10);
+      let mm = parseInt(m3[2], 10);
+      let yy = parseInt(m3[3], 10);
+
+      let hh = parseInt(m3[4] || "0", 10);
+      let mi = parseInt(m3[5] || "0", 10);
+      let ss = parseInt(m3[6] || "0", 10);
+
+      let ap = String(m3[7] || "").toUpperCase();
+      if (ap === "PM" && hh !== 12) hh += 12;
+      if (ap === "AM" && hh === 12) hh = 0;
+
+      let out = new Date(yy, mm - 1, dd, hh, mi, ss);
+      if (!Number.isNaN(out.getTime())) return out;
+    }
+
     return null;
   };
+
 
 
   window.CF_EXPORTER = window.CF_EXPORTER || {};
