@@ -6,6 +6,16 @@ The extension works directly on the CurseForge website by reading the visible tr
 
 ---
 
+## Installation
+
+The extension is available on both major browsers:
+
+* **Google Chrome:** [Chrome Webstore](https://chromewebstore.google.com/detail/curseforge-earnings-expor/oedgkbpecindpiiphddcjopmhomkmclo?hl=en-US&utm_source=ext_sidebar)
+* **Mozilla Firefox:** [Firefox Addon](https://addons.mozilla.org/en-US/firefox/addon/curseforge-earnings-exporter/?utm_source=addons.mozilla.org&utm_medium=referral&utm_content=search)
+
+
+---
+
 ## Features
 
 * Export **Points Generated** earnings directly from CurseForge
