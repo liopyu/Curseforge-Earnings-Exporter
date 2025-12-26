@@ -35,6 +35,21 @@
       String(el.textContent || "").trim()
     );
   };
+  let __navStopping = false;
+  let RUN_KEY = "cf_pdf_export_running";
+
+  let navStop = () => {
+    if (__navStopping) return;
+    __navStopping = true;
+
+    try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
+
+    window.CF_PDF_EXPORT_STOP = true;
+    if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
+
+    try { window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_STOP")); } catch (e) { }
+  };
+  window.addEventListener("beforeunload", navStop, { capture: true });
   let __probeRunning = false;
   let __probeDone = false;
 
@@ -79,6 +94,8 @@
     window.__CF_EXPORT_ABORT = { aborted: false };
     let abort = window.__CF_EXPORT_ABORT;
     let isAborted = () => window.CF_PDF_EXPORT_STOP || (abort && abort.aborted);
+
+    try { sessionStorage.setItem(RUN_KEY, "1"); } catch (e) { }
 
     let setStatus = window.CF_EXPORTER.status.setStatus;
     let fadeStatusAfter = window.CF_EXPORTER.status.fadeStatusAfter;
@@ -131,24 +148,28 @@
       return null;
     };
 
-
     let startMs = ymdToMs(startDateYmd);
     let endMs = ymdToMs(endDateYmd);
 
     if (startMs == null || endMs == null) {
       setStatus("Invalid date range.");
       fadeStatusAfter(5000);
+      try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
       return;
     }
 
     if (startMs > endMs) {
       setStatus("Invalid date range (start after end).");
       fadeStatusAfter(5000);
+      try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
       return;
     }
 
     let okStart = await ensureOnPage1();
-    if (!okStart) return;
+    if (!okStart) {
+      try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
+      return;
+    }
 
     let totalsPoints = {};
     let totalsUSD = {};
@@ -181,12 +202,12 @@
       return { newest, oldest };
     };
 
-
     try {
       while (true) {
         if (isAborted()) {
           setStatus("Stopped.");
           fadeStatusAfter(5000);
+          try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
           return;
         }
 
@@ -225,6 +246,7 @@
           if (isAborted()) {
             setStatus("Stopped.");
             fadeStatusAfter(5000);
+            try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
             return;
           }
 
@@ -236,23 +258,20 @@
             let expandRow = window.CF_EXPORTER.breakdown.expandRow;
             let readExpandedRowMods = window.CF_EXPORTER.breakdown.readExpandedRowMods;
 
-            let contexts = await mapLimit(candidates, 6, async it => {
+            await mapLimit(candidates, 6, async it => {
               if (isAborted()) return null;
               if (!it) return null;
-              try {
-                return await expandRow(it.row);
-              } catch (e) {
-                return null;
-              }
+              try { return await expandRow(it.row); } catch (e) { return null; }
             });
 
             if (isAborted()) {
               setStatus("Stopped.");
               fadeStatusAfter(5000);
+              try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
               return;
             }
 
-            parsed = await mapLimit(candidates, 1, async (it) => {
+            parsed = await mapLimit(candidates, 1, async it => {
               if (window.CF_PDF_EXPORT_STOP) return null;
 
               let meta = { dateText: it.dateText, page: it.page, expandId: it.expandId };
@@ -268,19 +287,19 @@
 
               return { y: it.y, m: it.m, pointsTotal: it.pointsTotal, mods: mods };
             });
-
           }
 
           if (isAborted()) {
             setStatus("Stopped.");
             fadeStatusAfter(5000);
+            try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
             return;
           }
 
           let parsedSafe = (parsed || []).filter(Boolean);
 
           for (let i = 0; i < parsedSafe.length; i++) {
-            let it = parsed[i];
+            let it = parsedSafe[i];
             if (!it) continue;
 
             if (!totalsPoints[it.y]) totalsPoints[it.y] = Array(12).fill(0);
@@ -320,6 +339,7 @@
         if (isAborted()) {
           setStatus("Stopped.");
           fadeStatusAfter(5000);
+          try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
           return;
         }
 
@@ -336,6 +356,7 @@
       if (isAborted()) {
         setStatus("Stopped.");
         fadeStatusAfter(5000);
+        try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
         return;
       }
 
@@ -357,9 +378,10 @@
         fmtPoints: fmtPoints
       });
 
-      if (isAborted()) {
+      if (__navStopping || isAborted()) {
         setStatus("Stopped.");
         fadeStatusAfter(5000);
+        try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
         return;
       }
 
@@ -379,9 +401,11 @@
       a.download = name;
       document.body.appendChild(a);
 
-      if (isAborted()) {
+      if (__navStopping || isAborted()) {
+        try { a.remove(); } catch (e) { }
         setStatus("Stopped.");
         fadeStatusAfter(5000);
+        try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
         return;
       }
 
@@ -390,13 +414,13 @@
 
       setStatus("Done. PDF downloaded. Pages parsed: " + parsedPages + ". Pages skipped: " + skippedPages + ". Rows: " + seen.size + ".");
       fadeStatusAfter(5000);
+      try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
     } finally {
-      try {
-        await ensureOnPage1();
-      } catch (e) {
-      }
+      try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
+      try { await ensureOnPage1(); } catch (e) { }
     }
   };
+
 
   let runExport = async (includeMods, startDate, endDate) => {
     if (running) return;
