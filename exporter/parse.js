@@ -1,16 +1,20 @@
 (() => {
   let norm = (v) => window.CF_EXPORTER.utils.norm(v);
   let parseUSDateTime = (s) => window.CF_EXPORTER.utils.parseUSDateTime(s);
-  let collectCandidates = (page) => {
+  let collectCandidates = (page, reportType) => {
     let rows = Array.from(document.querySelectorAll("tr.MuiTableRow-root.RaDatagrid-row"));
     let candidates = [];
+
+    let mode = (reportType === "withdrawals") ? "withdrawals" : "earnings";
 
     for (let row of rows) {
       let tds = Array.from(row.querySelectorAll("td"));
       if (tds.length < 7) continue;
 
       let kind = norm(tds[1]?.textContent);
-      if (kind !== "Points generated") continue;
+
+      let typeCell = row.querySelector("td.column-type");
+      let status = norm(typeCell ? (typeCell.textContent || typeCell.innerText) : (tds[3]?.textContent || ""));
 
       let dateCell = row.querySelector("td.column-dateCreated");
       let dateEl = dateCell ? (dateCell.querySelector("time") || dateCell.querySelector("span") || dateCell) : null;
@@ -30,16 +34,44 @@
       let pointsTotal = parseFloat(ptsRaw.replace(/[^0-9.\-]/g, ""));
       if (!Number.isFinite(pointsTotal)) continue;
 
+      if (mode === "earnings") {
+        if (kind !== "Points generated") continue;
+      } else {
+        if (status !== "Fulfilled") continue;
+        if (!(pointsTotal < 0)) continue;
+      }
+
+      let details = norm(tds[2]?.textContent);
+      let tx = norm(tds[6]?.textContent);
+      if (!tx) {
+        let link = tds[6]?.querySelector("a[href]");
+        if (link) tx = norm(link.textContent);
+      }
+
       let expandId = row.querySelector('[aria-controls$="-expand"]')?.getAttribute("aria-controls") || "";
 
       let y = d.getFullYear();
       let m = d.getMonth();
 
-      candidates.push({ row, y, m, pointsTotal, dateText: dateRaw, expandId, page });
+      candidates.push({
+        row,
+        y,
+        m,
+        pointsTotal,
+        dateText: dateRaw,
+        dateMs: d.getTime(),
+        expandId,
+        page,
+        method: kind,
+        details: details,
+        tx: tx,
+        status: status
+      });
     }
 
     return candidates;
   };
+
 
   let mapLimit = async (items, limit, fn) => {
     let idx = 0;

@@ -141,6 +141,110 @@ let buildDropdownUi = () => {
   opt.appendChild(check);
   opt.appendChild(optText);
   syncOpt();
+  let reportKey = "cf_pdf_export_report_type";
+
+  let getReportType = () => {
+    try {
+      let v = String(localStorage.getItem(reportKey) || "earnings").trim();
+      return v === "withdrawals" ? "withdrawals" : "earnings";
+    } catch (e) {
+      return "earnings";
+    }
+  };
+
+  let setReportType = (v) => {
+    let next = v === "withdrawals" ? "withdrawals" : "earnings";
+    try { localStorage.setItem(reportKey, next); } catch (e) { }
+    syncReportUi();
+    validate();
+  };
+
+  let reportWrap = document.createElement("div");
+  reportWrap.className = "cf-pdf-export-report";
+
+  let reportTitle = document.createElement("div");
+  reportTitle.className = "cf-pdf-export-report-title";
+  reportTitle.textContent = "Report Type";
+
+  let reportRow = document.createElement("div");
+  reportRow.className = "cf-pdf-export-report-row";
+
+  let mkRadio = (value, label) => {
+    let el = document.createElement("div");
+    el.className = "cf-pdf-export-report-opt";
+    el.setAttribute("role", "radio");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("data-value", value);
+
+    let dot = document.createElement("span");
+    dot.className = "cf-pdf-export-report-dot";
+    dot.setAttribute("aria-hidden", "true");
+
+    let txt = document.createElement("span");
+    txt.className = "cf-pdf-export-report-text";
+    txt.textContent = label;
+
+    el.appendChild(dot);
+    el.appendChild(txt);
+
+    let activate = () => setReportType(value);
+
+    el.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      activate();
+    });
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== " " && e.key !== "Enter") return;
+      e.preventDefault();
+      e.stopPropagation();
+      activate();
+    });
+
+    return el;
+  };
+
+  let optEarn = mkRadio("earnings", "Earnings (Points generated)");
+  let optWith = mkRadio("withdrawals", "Withdrawals (Fulfilled)");
+
+  reportRow.appendChild(optEarn);
+  reportRow.appendChild(optWith);
+
+  reportWrap.appendChild(reportTitle);
+  reportWrap.appendChild(reportRow);
+
+  let syncReportUi = () => {
+    let cur = getReportType();
+
+    let setSel = (el, on) => {
+      if (!el) return;
+      if (on) {
+        el.setAttribute("aria-checked", "true");
+        el.setAttribute("data-checked", "1");
+      } else {
+        el.setAttribute("aria-checked", "false");
+        el.removeAttribute("data-checked");
+      }
+    };
+
+    setSel(optEarn, cur === "earnings");
+    setSel(optWith, cur === "withdrawals");
+
+    let cb = document.getElementById(CHECK_ID);
+    if (cb) {
+      if (cur === "withdrawals") {
+        cb.checked = false;
+        cb.setAttribute("disabled", "true");
+      } else {
+        cb.removeAttribute("disabled");
+      }
+    }
+
+    syncOpt();
+  };
+
+  syncReportUi();
 
   let rangeWrap = document.createElement("div");
   rangeWrap.className = "cf-pdf-export-range";
@@ -426,10 +530,18 @@ let buildDropdownUi = () => {
     let startDate = String(startInput.value || "").trim() || null;
     let endDate = String(endInput.value || "").trim() || null;
 
+    let reportType = "earnings";
+    try {
+      reportType = String(localStorage.getItem("cf_pdf_export_report_type") || "earnings").trim() || "earnings";
+    } catch (x) {
+      reportType = "earnings";
+    }
+
     window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_START", {
-      detail: { includeMods: includeMods, startDate: startDate, endDate: endDate }
+      detail: { includeMods: includeMods, startDate: startDate, endDate: endDate, reportType: reportType }
     }));
   });
+
 
   stopBtn.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
@@ -499,10 +611,13 @@ let buildDropdownUi = () => {
 
   menu.appendChild(opt);
   menu.appendChild(sep);
+  menu.appendChild(reportWrap);
+  menu.appendChild(sep.cloneNode(true));
   menu.appendChild(rangeWrap);
   menu.appendChild(sep.cloneNode(true));
   menu.appendChild(exportBtn);
   menu.appendChild(stopBtn);
+
 
   wrap.appendChild(btn);
   wrap.appendChild(menu);

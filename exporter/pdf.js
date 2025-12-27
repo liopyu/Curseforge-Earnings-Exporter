@@ -2,11 +2,34 @@
   if (!window.CF_EXPORTER) window.CF_EXPORTER = {};
   if (!window.CF_EXPORTER.pdf) window.CF_EXPORTER.pdf = {};
 
-  let pdfEscape = s => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+
 
   let estimateTextWidth = (text, fontSize) => {
     let t = String(text);
     return t.length * fontSize * 0.52;
+  };
+  let sanitizePdfText = (s) => {
+    let t = String(s == null ? "" : s);
+
+    t = t
+      .replace(/\u00A0/g, " ")
+      .replace(/\u202F/g, " ")
+      .replace(/\u2007/g, " ")
+      .replace(/\u2009/g, " ")
+      .replace(/\u2014/g, "-")
+      .replace(/\u2013/g, "-")
+      .replace(/\u2212/g, "-")
+      .replace(/\u2026/g, "...")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    t = t.replace(/[^\x20-\x7E]/g, "");
+
+    return t;
+  };
+  let pdfEscape = (s) => {
+    let t = sanitizePdfText(s);
+    return t.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
   };
 
   window.CF_EXPORTER.pdf.buildOfficialPdf = (args) => {
@@ -92,6 +115,11 @@
 
       return y;
     };
+    let reportType = args.reportType === "withdrawals" ? "withdrawals" : "earnings";
+
+    let withdrawals = Array.isArray(args.withdrawals) ? args.withdrawals.slice() : [];
+    withdrawals = withdrawals.filter(x => x && typeof x === "object");
+    withdrawals.sort((a, b) => (a.dateMs || 0) - (b.dateMs || 0));
 
     let modListsByYear = {};
     if (includeMods) {
@@ -110,6 +138,7 @@
 
     let pageSpecs = [];
     pageSpecs.push({ kind: "cover" });
+
 
     for (let i = 0; i < years.length; i++) {
       let yYear = years[i];
@@ -134,7 +163,22 @@
         first = false;
       }
     }
+    if (reportType === "withdrawals" && withdrawals.length) {
+      let first = true;
 
+      let yStart = pageH - marginT - 54;
+      let headerSpace = 10 + 16 + 18 + headerH;
+      let usableRows = Math.floor((yStart - headerSpace - (marginB + 56)) / rowH);
+      if (!Number.isFinite(usableRows) || usableRows < 6) usableRows = 6;
+
+      let start = 0;
+      while (start < withdrawals.length) {
+        let count = Math.min(usableRows, withdrawals.length - start);
+        pageSpecs.push({ kind: "withdrawals", start: start, count: count, first: first });
+        start += count;
+        first = false;
+      }
+    }
 
     let totalPages = pageSpecs.length;
 
@@ -223,13 +267,22 @@
 
       let drawHeader = (rightText) => {
         setStroke();
-        addText("F2", 11, marginL, headerTextY, "CurseForge Author Rewards Report");
+        addText(
+          "F2",
+          11,
+          marginL,
+          headerTextY,
+          reportType === "withdrawals"
+            ? "CurseForge Withdrawals Report"
+            : "CurseForge Author Rewards Report"
+        );
+
         if (rightText) addTextRight("F1", 10, pageW - marginR, headerTextY, rightText);
         addLine(marginL, headerRuleY, pageW - marginR, headerRuleY);
       };
       let drawModsOnlyPage = (spec) => {
         drawFrame();
-        drawHeader("Tax Year " + spec.year);
+        drawHeader("Year " + spec.year);
 
         let y = pageH - marginT - 54;
 
@@ -238,6 +291,146 @@
 
         drawFooter();
       };
+      let drawWithdrawalsPage = (spec) => {
+        drawFrame();
+        drawHeader("Withdrawals Statement");
+
+        let y = pageH - marginT - 54;
+
+        addText("F2", 16, marginL, y, spec.first ? "Withdrawals Statement" : "Withdrawals Statement (Continued)");
+        y -= 18;
+
+        addText("F1", 10, marginL, y, "Only fulfilled withdrawals are listed. Amounts shown as absolute values for readability.");
+        y -= 24;
+
+        setStroke();
+
+        let colDate = Math.floor(usableW * 0.18);
+        let colDesc = Math.floor(usableW * 0.40);
+        let colPts = Math.floor(usableW * 0.13);
+        let colUsd = Math.floor(usableW * 0.11);
+        let colTx = usableW - colDate - colDesc - colPts - colUsd;
+
+        let wx0 = marginL;
+        let wx1 = wx0 + colDate;
+        let wx2 = wx1 + colDesc;
+        let wx3 = wx2 + colPts;
+        let wx4 = wx3 + colUsd;
+        let wx5 = wx0 + usableW;
+
+        let top = y;
+        let bottom = top - headerH;
+
+        addRect(wx0, bottom, usableW, headerH);
+        addLine(wx1, bottom, wx1, top);
+        addLine(wx2, bottom, wx2, top);
+        addLine(wx3, bottom, wx3, top);
+        addLine(wx4, bottom, wx4, top);
+
+        addText("F2", 11, wx0 + 8, top - 15, "Date");
+        addText("F2", 11, wx1 + 8, top - 15, "Method / Details");
+        addText("F2", 11, wx2 + 8, top - 15, "Points");
+        addText("F2", 11, wx3 + 8, top - 15, "USD");
+        addText("F2", 11, wx4 + 8, top - 15, "Transaction");
+
+        y = bottom;
+
+        let slice = withdrawals.slice(spec.start, spec.start + spec.count);
+
+        let tableTop = y;
+        let tableBottom = y - slice.length * rowH;
+
+        addRect(wx0, tableBottom, usableW, slice.length * rowH);
+        addLine(wx1, tableBottom, wx1, tableTop);
+        addLine(wx2, tableBottom, wx2, tableTop);
+        addLine(wx3, tableBottom, wx3, tableTop);
+        addLine(wx4, tableBottom, wx4, tableTop);
+
+        let maxDateChars = Math.max(8, Math.floor((colDate - 16) / 6.1));
+        let maxDescChars = Math.max(12, Math.floor((colDesc - 16) / 6.1));
+        let maxTxChars = Math.max(10, Math.floor((colTx - 16) / 6.1));
+
+        let fmtDateOnly = (ms, fallback) => {
+          if (!Number.isFinite(ms)) {
+            let s = sanitizePdfText(fallback || "");
+            if (!s) return "";
+            let i = s.indexOf(",");
+            if (i !== -1) s = s.slice(0, i);
+            return s.trim();
+          }
+          let d = new Date(ms);
+          if (Number.isNaN(d.getTime())) {
+            let s = sanitizePdfText(fallback || "");
+            let i = s.indexOf(",");
+            if (i !== -1) s = s.slice(0, i);
+            return s.trim();
+          }
+          let m = String(d.getMonth() + 1);
+          let day = String(d.getDate());
+          let y = String(d.getFullYear());
+          return m + "/" + day + "/" + y;
+        };
+
+        let splitTwoLines = (text, limit) => {
+          let t = sanitizePdfText(text);
+          if (!t) return ["", ""];
+
+          if (t.length <= limit) return [t, ""];
+
+          let cut = limit;
+          let space = t.lastIndexOf(" ", limit);
+          if (space >= Math.floor(limit * 0.6)) cut = space;
+
+          let a = t.slice(0, cut).trim();
+          let b = t.slice(cut).trim();
+
+          if (b.length > limit) b = b.slice(0, Math.max(0, limit - 3)).trim() + "...";
+
+          return [a, b];
+        };
+
+        for (let i = 0; i < slice.length; i++) {
+          let r = slice[i];
+          let rowTop = y - i * rowH;
+          if (i > 0) addLine(wx0, rowTop, wx5, rowTop);
+
+          let midY = rowTop - rowH + 6;
+
+          let dateText = fmtDateOnly(r.dateMs, r.dateText);
+          if (dateText.length > maxDateChars) dateText = dateText.slice(0, Math.max(0, maxDateChars - 3)).trim() + "...";
+
+          let desc = String(r.method || "").trim();
+          let det = String(r.details || "").trim();
+          let descFull = det ? (desc ? (desc + " - " + det) : det) : desc;
+
+          let lines = splitTwoLines(descFull, maxDescChars);
+
+          let ptsAbs = Math.abs(Number(r.points || 0));
+          let usdAbs = Math.abs(Number(r.usd || 0));
+
+          let ptsText = fmtPoints(ptsAbs);
+          let usdText = fmtUSD(usdAbs);
+
+          let txText = sanitizePdfText(r.tx || "");
+          if (txText.length > maxTxChars) txText = txText.slice(0, Math.max(0, maxTxChars - 3)).trim() + "...";
+
+          addText("F1", 11, wx0 + 8, midY, dateText);
+
+          if (lines[1]) {
+            addText("F1", 10, wx1 + 8, midY + 4, lines[0]);
+            addText("F1", 10, wx1 + 8, midY - 8, lines[1]);
+          } else {
+            addText("F1", 11, wx1 + 8, midY, lines[0]);
+          }
+
+          addTextRight("F1", 11, wx3 - 8, midY, ptsText);
+          addTextRight("F1", 11, wx4 - 8, midY, usdText);
+          addText("F1", 11, wx4 + 8, midY, txText);
+        }
+
+        drawFooter();
+      };
+
 
       let drawCover = () => {
         drawFrame();
@@ -245,7 +438,13 @@
 
         let y = pageH - marginT - 50;
 
-        addTextCentered("F2", 18, y, "CurseForge Points Generated");
+        addTextCentered(
+          "F2",
+          18,
+          y,
+          reportType === "withdrawals" ? "CurseForge Withdrawals" : "CurseForge Points Generated"
+        );
+
         y -= 26;
         addTextCentered("F1", 13, y, "USD Equivalent Summary");
         y -= 36;
@@ -257,8 +456,17 @@
         y -= 18;
 
         addText("F2", 12, marginL, y, "Transaction Type:");
-        addText("F1", 12, marginL + 130, y, "Points generated (withdrawals excluded)");
+        addText(
+          "F1",
+          12,
+          marginL + 130,
+          y,
+          reportType === "withdrawals"
+            ? "Withdrawals (Fulfilled - negative points)"
+            : "Points generated (withdrawals excluded)"
+        );
         y -= 18;
+
 
         addText("F2", 12, marginL, y, "Conversion Rate:");
         addText("F1", 12, marginL + 130, y, "100 points = $5.00 (1 point = $0.05)");
@@ -367,13 +575,29 @@
         let yYear = spec.year;
 
         drawFrame();
-        drawHeader("Tax Year " + yYear);
+        drawHeader(reportType === "withdrawals" ? ("Tax Year " + yYear) : ("Year " + yYear));
+
 
         let y = pageH - marginT - 54;
-        addText("F2", 16, marginL, y, "Tax Year " + yYear);
+        addText(
+          "F2",
+          16,
+          marginL,
+          y,
+          reportType === "withdrawals" ? ("Tax Year " + yYear) : ("Year " + yYear)
+        );
+
         y -= 18;
 
-        addText("F1", 10, marginL, y, "USD equivalent computed at $0.05 per point (100 points = $5.00).");
+        addText(
+          "F1",
+          10,
+          marginL,
+          y,
+          reportType === "withdrawals"
+            ? "USD equivalent computed at $0.05 per point (100 points spent = $5.00)."
+            : "USD equivalent computed at $0.05 per point (100 points = $5.00)."
+        );
         y -= 24;
 
         setStroke();
@@ -453,6 +677,7 @@
       if (spec.kind === "cover") drawCover();
       if (spec.kind === "year") drawYear(spec);
       if (spec.kind === "mods") drawModsOnlyPage(spec);
+      if (spec.kind === "withdrawals") drawWithdrawalsPage(spec);
 
       return parts.join("\n") + "\n";
     };

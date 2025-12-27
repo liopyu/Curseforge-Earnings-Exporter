@@ -76,7 +76,8 @@
     window.CF_PDF_EXPORT_STOP = true;
     if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
   });
-  let exporterMain = async (includeMods, startDateYmd, endDateYmd) => {
+  let exporterMain = async (includeMods, startDateYmd, endDateYmd, reportType) => {
+
     let startRaw = (startDateYmd != null ? String(startDateYmd).trim() : "") || "";
     let endRaw = (endDateYmd != null ? String(endDateYmd).trim() : "") || "";
 
@@ -170,12 +171,13 @@
       try { sessionStorage.setItem(RUN_KEY, "0"); } catch (e) { }
       return;
     }
-
     let totalsPoints = {};
     let totalsUSD = {};
     let totalsModPoints = {};
     let totalsModUSD = {};
+    let withdrawals = [];
     let seen = new Set();
+
 
     let page = 0;
     let parsedPages = 0;
@@ -222,7 +224,8 @@
           setStatus("Reached start of range on page " + page + ". Parsed: " + parsedPages + ". Skipped: " + skippedPages + ".");
           break;
         } else {
-          let rawCandidates = collectCandidates(page) || [];
+          let rawCandidates = collectCandidates(page, reportType) || [];
+
 
           let candidates = [];
           for (let i = 0; i < rawCandidates.length; i++) {
@@ -237,7 +240,14 @@
 
             if (t < startMs || t > endMs) continue;
 
-            let key = String(it.y) + "|" + String(it.m) + "|" + String(it.pointsTotal) + "|" + String(it.expandId);
+            let key =
+              String(it.y) + "|" +
+              String(it.m) + "|" +
+              String(it.pointsTotal) + "|" +
+              String(it.expandId) + "|" +
+              String(it.tx || "") + "|" +
+              String(it.method || "") + "|" +
+              String(it.details || "");
             if (seen.has(key)) continue;
             seen.add(key);
             candidates.push(it);
@@ -297,6 +307,25 @@
           }
 
           let parsedSafe = (parsed || []).filter(Boolean);
+          if (reportType === "withdrawals") {
+            for (let i = 0; i < candidates.length; i++) {
+              let c = candidates[i];
+              if (!c) continue;
+
+              let pts = c.pointsTotal;
+              if (!Number.isFinite(pts) || !(pts < 0)) continue;
+
+              withdrawals.push({
+                dateText: c.dateText,
+                dateMs: c.dateMs || 0,
+                method: c.method || "",
+                details: c.details || "",
+                points: pts,
+                usd: pts * USD_PER_POINT,
+                tx: c.tx || ""
+              });
+            }
+          }
 
           for (let i = 0; i < parsedSafe.length; i++) {
             let it = parsedSafe[i];
@@ -364,6 +393,7 @@
       let now = new Date();
 
       let bytes = window.CF_EXPORTER.pdf.buildOfficialPdf({
+        reportType: reportType,
         includeMods: includeMods,
         years: yearsOut,
         now: now,
@@ -373,6 +403,7 @@
         totalsUSD: totalsUSD,
         totalsModPoints: totalsModPoints,
         totalsModUSD: totalsModUSD,
+        withdrawals: withdrawals,
         monthNames: monthNames,
         fmtUSD: fmtUSD,
         fmtPoints: fmtPoints
@@ -422,7 +453,7 @@
   };
 
 
-  let runExport = async (includeMods, startDate, endDate) => {
+  let runExport = async (includeMods, startDate, endDate, reportType) => {
     if (running) return;
 
     window.CF_EXPORTER.status.removeStatus();
@@ -431,12 +462,13 @@
     running = true;
     try {
       window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: true } }));
-      await exporterMain(includeMods, startDate, endDate);
+      await exporterMain(includeMods, startDate, endDate, reportType);
     } finally {
       running = false;
       window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: false } }));
     }
   };
+
   window.addEventListener("CF_PDF_EXPORT_START", (e) => {
     let d = null;
     try { d = e && e.detail ? e.detail : null; } catch (x) { d = null; }
@@ -462,8 +494,15 @@
       if (d && d.endDate != null) endDate = String(d.endDate).trim() || null;
     } catch (x) { endDate = null; }
 
-    runExport(includeMods, startDate, endDate);
-  });
+    let reportType = "earnings";
+    try {
+      if (d && d.reportType != null) reportType = String(d.reportType).trim() || "earnings";
+    } catch (x) { reportType = "earnings"; }
 
+    if (reportType !== "withdrawals") reportType = "earnings";
+    if (reportType === "withdrawals") includeMods = false;
+
+    runExport(includeMods, startDate, endDate, reportType);
+  });
 
 })();
