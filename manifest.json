@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CurseForge Earnings Exporter",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Provides an export button on the Curseforge Transactions page to export CurseForge Author Rewards transactions to a PDF summary.",
   "permissions": [],
   "host_permissions": [

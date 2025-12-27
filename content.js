@@ -68,6 +68,7 @@ let toggleMenu = () => {
   if (!menu) return;
   setMenuOpen(menu.getAttribute("data-open") !== "1");
 };
+
 let buildDropdownUi = () => {
 
   let wrap = document.createElement("div");
@@ -537,16 +538,23 @@ let buildDropdownUi = () => {
       reportType = "earnings";
     }
 
-    window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_START", {
-      detail: { includeMods: includeMods, startDate: startDate, endDate: endDate, reportType: reportType }
-    }));
+    window.postMessage({
+      __cfPdfExporter: true,
+      type: "CF_PDF_EXPORT_START",
+      includeMods: includeMods,
+      startDate: startDate,
+      endDate: endDate,
+      reportType: reportType
+    }, "*");
+
   });
 
 
   stopBtn.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
     e.preventDefault();
-    window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_STOP"));
+    window.postMessage({ __cfPdfExporter: true, type: "CF_PDF_EXPORT_STOP" }, "*");
+
   });
 
   let rangeKey = "cf_pdf_export_range_v2";
@@ -589,10 +597,14 @@ let buildDropdownUi = () => {
     if (probed) return;
     probed = true;
 
-    window.addEventListener("CF_PDF_EXPORT_PROBE_RANGE_RESULT", (ev) => {
+    window.addEventListener("message", (ev) => {
+      if (ev.source !== window) return;
+      let d = ev.data;
+      if (!d || d.__cfPdfExporter !== true) return;
+      if (d.type !== "CF_PDF_EXPORT_PROBE_RANGE_RESULT") return;
+
       try {
-        let d = ev && ev.detail ? ev.detail : null;
-        if (!d || typeof d.min !== "string" || typeof d.max !== "string") return;
+        if (typeof d.min !== "string" || typeof d.max !== "string") return;
 
         setBounds(d.min, d.max);
 
@@ -605,7 +617,8 @@ let buildDropdownUi = () => {
       }
     }, { once: true });
 
-    window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_PROBE_RANGE"));
+    window.postMessage({ __cfPdfExporter: true, type: "CF_PDF_EXPORT_PROBE_RANGE" }, "*");
+
     validate();
   };
 

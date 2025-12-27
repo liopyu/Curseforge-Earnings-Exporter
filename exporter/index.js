@@ -47,7 +47,6 @@
     window.CF_PDF_EXPORT_STOP = true;
     if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
 
-    try { window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_STOP")); } catch (e) { }
   };
   window.addEventListener("beforeunload", navStop, { capture: true });
   let __probeRunning = false;
@@ -468,41 +467,52 @@
       window.dispatchEvent(new CustomEvent("CF_PDF_EXPORT_RUNNING", { detail: { running: false } }));
     }
   };
+  window.addEventListener("message", (ev) => {
+    if (ev.source !== window) return;
 
-  window.addEventListener("CF_PDF_EXPORT_START", (e) => {
-    let d = null;
-    try { d = e && e.detail ? e.detail : null; } catch (x) { d = null; }
+    let d = ev.data;
+    if (!d || d.__cfPdfExporter !== true) return;
 
-    let includeMods = null;
-    try {
-      includeMods = d && typeof d.includeMods === "boolean" ? d.includeMods : null;
-    } catch (x) { includeMods = null; }
-
-    if (includeMods == null) {
-      let cb = document.getElementById("cf-pdf-export-permod");
-      includeMods = cb && typeof cb.checked === "boolean" ? cb.checked : false;
+    if (d.type === "CF_PDF_EXPORT_STOP") {
+      window.CF_PDF_EXPORT_STOP = true;
+      if (window.__CF_EXPORT_ABORT) window.__CF_EXPORT_ABORT.aborted = true;
+      return;
     }
 
-    let startDate = null;
-    let endDate = null;
+    if (d.type === "CF_PDF_EXPORT_PROBE_RANGE") {
+      if (__probeDone || __probeRunning) return;
+      __probeRunning = true;
 
-    try {
-      if (d && d.startDate != null) startDate = String(d.startDate).trim() || null;
-    } catch (x) { startDate = null; }
+      try {
+        let minYmd = "2013-01-01";
+        let maxYmd = toYmdLocal(new Date());
 
-    try {
-      if (d && d.endDate != null) endDate = String(d.endDate).trim() || null;
-    } catch (x) { endDate = null; }
+        window.postMessage({
+          __cfPdfExporter: true,
+          type: "CF_PDF_EXPORT_PROBE_RANGE_RESULT",
+          min: minYmd,
+          max: maxYmd
+        }, "*");
 
-    let reportType = "earnings";
-    try {
-      if (d && d.reportType != null) reportType = String(d.reportType).trim() || "earnings";
-    } catch (x) { reportType = "earnings"; }
+        __probeDone = true;
+      } finally {
+        __probeRunning = false;
+      }
+      return;
+    }
 
-    if (reportType !== "withdrawals") reportType = "earnings";
-    if (reportType === "withdrawals") includeMods = false;
+    if (d.type === "CF_PDF_EXPORT_START") {
+      let includeMods = !!d.includeMods;
+      let startDate = (d.startDate != null ? String(d.startDate).trim() : "") || null;
+      let endDate = (d.endDate != null ? String(d.endDate).trim() : "") || null;
 
-    runExport(includeMods, startDate, endDate, reportType);
+      let reportType = (d.reportType != null ? String(d.reportType).trim() : "") || "earnings";
+      if (reportType !== "withdrawals") reportType = "earnings";
+      if (reportType === "withdrawals") includeMods = false;
+
+      runExport(includeMods, startDate, endDate, reportType);
+    }
   });
+
 
 })();
